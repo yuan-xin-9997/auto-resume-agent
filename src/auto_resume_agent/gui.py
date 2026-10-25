@@ -1,0 +1,431 @@
+import os
+import queue
+import sys
+import threading
+import time
+from pathlib import Path
+
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QIcon, QColor
+from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QLabel, QPushButton, QComboBox, QLineEdit, QTableWidget, QTableWidgetItem,
+    QHeaderView, QAbstractItemView, QStackedWidget, QFrame, QProgressBar, QMessageBox)
+
+from .engine import Engine
+from .i18n import LANGUAGES, tr
+from .protocol import Codex, BackendError
+from .store import Store
+
+ASSETS = Path(__file__).parent / "assets"
+
+STYLE = """
+QWidget { background: #10151e; color: #e6edf7; font-family: 'Segoe UI', 'Noto Sans', sans-serif; font-size: 13px; }
+QFrame#sidebar { background: #151c28; border-right: 1px solid #273246; }
+QLabel#brand { font-size: 19px; font-weight: 700; }
+QLabel#title { font-size: 30px; font-weight: 700; }
+QLabel#muted { color: #9baac2; }
+QLabel#badge { color: #66e2b4; background: #193b36; padding: 7px 12px; border-radius: 6px; }
+QLabel#section { font-size: 17px; font-weight: 600; }
+QFrame#card { background: #192231; border: 1px solid #2a384e; border-radius: 12px; }
+QFrame#card QLabel { background: transparent; }
+QLabel#amount { font-size: 32px; font-weight: 700; }
+QPushButton { background: #202c3e; border: 1px solid #33425c; padding: 10px 16px; border-radius: 7px; }
+QPushButton:hover { background: #2c3c54; }
+QPushButton:disabled { color: #68768d; }
+QPushButton#primary { background: #64e1b4; color: #102b23; border: none; font-weight: 600; }
+QPushButton#primary:hover { background: #8cebc9; }
+QPushButton#nav { text-align: left; background: transparent; border: none; padding: 13px; }
+QPushButton#nav:checked { background: #24384a; color: #78e5c0; }
+QTableWidget { background: #141d2a; gridline-color: #27354a; border: 1px solid #29374c; border-radius: 8px; selection-background-color: #294b54; }
+QTableWidget::item { padding: 8px; }
+QHeaderView::section { background: #1c2839; color: #a8b8d0; border: none; padding: 12px; }
+QLineEdit, QComboBox { background: #1c2839; border: 1px solid #3b4c67; border-radius: 6px; padding: 9px; }
+QProgressBar { background: #2c3a50; border: none; border-radius: 4px; max-height: 7px; }
+QProgressBar::chunk { background: #69dfb6; border-radius: 4px; }
+QToolTip { color: #e6edf7; background: #243247; border: 1px solid #425676; }
+"""
+STYLE = STYLE.replace("'Segoe UI', 'Noto Sans', sans-serif", {
+    "win32": "'Microsoft YaHei UI'", "darwin": "'PingFang SC'"}.get(sys.platform, "'Noto Sans CJK SC'"))
+
+
+def timestamp(value):
+    return time.strftime("%m-%d %H:%M:%S", time.localtime(value)) if value else "—"
+
+
+class Worker:
+    def __init__(self, store):
+        self.store = store
+        self.inbox, self.outbox = queue.Queue(), queue.Queue()
+        self.stop = threading.Event()
+        self.wake = threading.Event()
+        self.thread = threading.Thread(target=self.run, daemon=True)
+        self.thread.start()
+
+    def request(self, kind, value=None):
+        self.inbox.put((kind, value))
+        self.wake.set()
+
+    def run(self):
+        backend, engine, configured = None, None, None
+        while not self.stop.is_set():
+            wait = 5
+            try:
+                path = self.store.get("codex_path") or None
+                if backend is None or path != configured:
+                    if backend:
+                        backend.close()
+                    backend = Codex(path)
+                    engine = Engine(self.store, backend)
+                    configured = path
+                    self.inbox.put(("threads", None))
+                while not self.inbox.empty():
+                    kind, value = self.inbox.get_nowait()
+                    if kind == "threads":
+                        self.outbox.put(("threads", (backend.threads(value), value is not None)))
+                    elif kind == "refresh":
+                        engine.last_usage = 0
+                result = engine.tick()
+                wait = result["delay"]
+                self.outbox.put(("tick", result))
+            except Exception as error:
+                code = str(error) if isinstance(error, BackendError) else "generic_error"
+                self.outbox.put(("error", code))
+                if backend:
+                    backend.close()
+                backend, engine = None, None
+                wait = 10
+            self.wake.wait(wait)
+            self.wake.clear()
+        if backend:
+            backend.close()
+
+
+class Window(QMainWindow):
+    def __init__(self, store, start_worker=True):
+        super().__init__()
+        self.store = store
+        self.language = store.get("language", "en")
+        self.translated = []
+        self.rows = []
+        self.cursor = None
+        self.latest_tick = {}
+        self.worker = None
+        self.setWindowTitle("Auto Resume Agent")
+        self.setWindowIcon(QIcon(str(ASSETS / "icon.png")))
+        self.resize(1200, 800)
+        self.setMinimumSize(940, 650)
+        root = QWidget()
+        self.setCentralWidget(root)
+        layout = QHBoxLayout(root)
+        layout.setContentsMargins(0, 0, 0, 0)
+        sidebar = QFrame()
+        sidebar.setObjectName("sidebar")
+        sidebar.setFixedWidth(205)
+        side = QVBoxLayout(sidebar)
+        side.setContentsMargins(18, 28, 18, 24)
+        logo = QLabel()
+        logo.setPixmap(QIcon(str(ASSETS / "icon.png")).pixmap(52, 52))
+        side.addWidget(logo)
+        brand = QLabel("Auto Resume\nAgent")
+        brand.setObjectName("brand")
+        side.addWidget(brand)
+        side.addSpacing(30)
+        self.pages = QStackedWidget()
+        self.navs = []
+        for index, key in enumerate(("dashboard", "activity", "settings")):
+            button = self.button(key, lambda checked=False, i=index: self.navigate(i))
+            button.setObjectName("nav")
+            button.setCheckable(True)
+            side.addWidget(button)
+            self.navs.append(button)
+        side.addStretch()
+        side.addWidget(self.label("privacy", "muted", wrap=True))
+        side.addSpacing(15)
+        side.addWidget(QLabel("v0.1.0"))
+        layout.addWidget(sidebar)
+        layout.addWidget(self.pages, 1)
+        self.build_dashboard()
+        self.build_activity()
+        self.build_settings()
+        self.navigate(0)
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.poll)
+        self.timer.start(250)
+        self.slow_timer = QTimer(self)
+        self.slow_timer.timeout.connect(self.render)
+        self.slow_timer.start(1000)
+        if start_worker:
+            self.worker = Worker(store)
+        self.render()
+
+    def text(self, key):
+        return tr(key, self.language)
+
+    def label(self, key, style=None, wrap=False):
+        label = QLabel(self.text(key))
+        label.setWordWrap(wrap)
+        if style:
+            label.setObjectName(style)
+        self.translated.append((label, key))
+        return label
+
+    def button(self, key, callback):
+        button = QPushButton(self.text(key))
+        button.clicked.connect(callback)
+        self.translated.append((button, key))
+        return button
+
+    def page(self):
+        page = QWidget()
+        box = QVBoxLayout(page)
+        box.setContentsMargins(30, 28, 30, 25)
+        box.setSpacing(17)
+        self.pages.addWidget(page)
+        return box
+
+    def build_dashboard(self):
+        box = self.page()
+        top = QHBoxLayout()
+        top.addWidget(self.label("dashboard", "title"))
+        top.addStretch()
+        self.badge = QLabel()
+        self.badge.setObjectName("badge")
+        top.addWidget(self.badge)
+        box.addLayout(top)
+        box.addWidget(self.label("subtitle", "muted"))
+        controls = QHBoxLayout()
+        self.toggle = QPushButton()
+        self.toggle.setObjectName("primary")
+        self.toggle.clicked.connect(self.toggle_enabled)
+        controls.addWidget(self.toggle)
+        controls.addWidget(self.button("refresh", self.refresh))
+        controls.addStretch()
+        controls.addWidget(self.button("help", self.help))
+        box.addLayout(controls)
+        box.addWidget(self.label("quota", "section"))
+        self.quota_layout = QHBoxLayout()
+        box.addLayout(self.quota_layout)
+        self.connection = QLabel(self.text("unknown"))
+        self.connection.setObjectName("muted")
+        self.connection.setWordWrap(True)
+        box.addWidget(self.connection)
+        box.addWidget(self.label("sessions", "section"))
+        box.addWidget(self.label("hint", "muted", wrap=True))
+        buttons = QHBoxLayout()
+        buttons.addWidget(self.button("watch", self.watch_selected))
+        buttons.addWidget(self.button("unwatch", self.unwatch_selected))
+        buttons.addStretch()
+        self.more = self.button("more", self.load_more)
+        buttons.addWidget(self.more)
+        box.addLayout(buttons)
+        self.table = self.make_table(3)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.table.setColumnWidth(1, 190)
+        self.table.setColumnWidth(2, 270)
+        box.addWidget(self.table, 1)
+        box.addWidget(self.label("scope", "muted"))
+
+    def make_table(self, columns):
+        table = QTableWidget(0, columns)
+        table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        table.verticalHeader().hide()
+        table.setShowGrid(False)
+        table.setAlternatingRowColors(False)
+        table.verticalHeader().setDefaultSectionSize(65)
+        return table
+
+    def build_activity(self):
+        box = self.page()
+        box.addWidget(self.label("activity", "title"))
+        box.addWidget(self.label("privacy", "muted"))
+        self.events = self.make_table(3)
+        self.events.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.events.setColumnWidth(0, 150)
+        self.events.setColumnWidth(1, 300)
+        box.addWidget(self.events)
+
+    def build_settings(self):
+        box = self.page()
+        box.addWidget(self.label("settings", "title"))
+        box.addWidget(self.label("language", "section"))
+        self.languages = QComboBox()
+        for key, name in LANGUAGES.items():
+            self.languages.addItem(name, key)
+        self.languages.setCurrentIndex(max(0, self.languages.findData(self.language)))
+        self.languages.currentIndexChanged.connect(self.change_language)
+        box.addWidget(self.languages)
+        box.addWidget(self.label("codex_path", "section"))
+        self.executable = QLineEdit(self.store.get("codex_path", ""))
+        box.addWidget(self.executable)
+        box.addWidget(self.button("save", self.save))
+        box.addWidget(self.label("confirm_close", "muted", wrap=True))
+        box.addStretch()
+        box.addWidget(self.label("about", "muted"))
+
+    def navigate(self, index):
+        self.pages.setCurrentIndex(index)
+        for i, button in enumerate(self.navs):
+            button.setChecked(i == index)
+
+    def change_language(self):
+        self.language = self.languages.currentData()
+        self.store.set("language", self.language)
+        for widget, key in self.translated:
+            widget.setText(self.text(key))
+        self.render()
+
+    def save(self):
+        self.store.set("codex_path", self.executable.text().strip())
+        self.connection.setText(self.text("saved"))
+        self.refresh()
+
+    def help(self):
+        QMessageBox.information(self, self.text("help"), self.text("help_text"))
+
+    def refresh(self):
+        if self.worker:
+            self.worker.request("refresh")
+            self.worker.request("threads")
+
+    def load_more(self):
+        if self.worker and self.cursor:
+            self.worker.request("threads", self.cursor)
+
+    def selected(self):
+        return [self.rows[index.row()]["id"] for index in self.table.selectionModel().selectedRows()]
+
+    def watch_selected(self):
+        for tid in self.selected():
+            self.store.watch(tid)
+        if self.worker:
+            self.worker.request("refresh")
+        self.render()
+
+    def unwatch_selected(self):
+        for tid in self.selected():
+            self.store.unwatch(tid)
+        self.render()
+
+    def toggle_enabled(self):
+        self.store.set("enabled", not self.store.get("enabled", False))
+        if self.worker:
+            self.worker.request("refresh")
+        self.render()
+
+    def poll(self):
+        if not self.worker:
+            return
+        while not self.worker.outbox.empty():
+            kind, data = self.worker.outbox.get_nowait()
+            if kind == "threads":
+                page, append = data
+                rows = page.get("data", [])
+                self.rows = self.rows + [r for r in rows if r["id"] not in {x["id"] for x in self.rows}] if append else rows
+                self.cursor = page.get("nextCursor")
+            elif kind == "tick":
+                self.latest_tick = data
+                self.connection.setText(self.text(data["error"]) if data.get("error") else self.text("ready"))
+            else:
+                self.connection.setText(self.text(data) if data in ("codex_missing", "another_monitor") else self.text("generic_error"))
+                self.connection.setToolTip(data)
+            self.render()
+
+    def render(self):
+        enabled = self.store.get("enabled", False)
+        self.badge.setText(self.text("monitoring" if enabled else "paused"))
+        self.toggle.setText(self.text("pause" if enabled else "start"))
+        self.more.setEnabled(bool(self.cursor))
+        snapshot = self.store.get("usage", {"windows": []})
+        # Rebuild only when quota values or locale change, avoiding focus churn.
+        quota_key = (str(snapshot), self.language)
+        if getattr(self, "quota_key", None) != quota_key:
+            self.quota_key = quota_key
+            while self.quota_layout.count():
+                item = self.quota_layout.takeAt(0)
+                if item.widget():
+                    item.widget().deleteLater()
+            for window in snapshot.get("windows", []) or [None]:
+                card = QFrame()
+                card.setObjectName("card")
+                card_box = QVBoxLayout(card)
+                card_box.setContentsMargins(18, 15, 18, 15)
+                if window:
+                    label = f'{window["bucket"]} · {window.get("minutes") or "?"} {self.text("minutes")}'
+                    left = max(0, 100 - window["used_percent"])
+                    amount = f'{left:g}% {self.text("remaining")}'
+                    reset = self.text("reset") + " · " + timestamp(window.get("reset_at"))
+                else:
+                    label, amount, reset = "Codex", self.text("unknown"), "—"
+                    left = 0
+                card_box.addWidget(QLabel(label))
+                number = QLabel(amount)
+                number.setObjectName("amount")
+                card_box.addWidget(number)
+                bar = QProgressBar()
+                bar.setRange(0, 100)
+                bar.setValue(int(left))
+                bar.setTextVisible(False)
+                card_box.addWidget(bar)
+                card_box.addWidget(QLabel(reset))
+                card_box.addWidget(QLabel(self.text("usage_age") + " · " + timestamp(snapshot.get("checked_at"))))
+                self.quota_layout.addWidget(card)
+        watched = {r["id"] for r in self.store.watched()}
+        records = self.store.records()
+        self.table.setHorizontalHeaderLabels([self.text(k) for k in ("thread", "project", "status")])
+        # Preserve selected UUIDs while replacing rows after a refresh.
+        selected = {self.table.item(i.row(), 0).data(Qt.ItemDataRole.UserRole)
+                    for i in self.table.selectionModel().selectedRows() if self.table.item(i.row(), 0)}
+        self.table.setRowCount(len(self.rows))
+        for index, row in enumerate(self.rows):
+            tid = row["id"]
+            record = next((r for r in records if r["thread_id"] == tid), None)
+            state = record["state"] if record else ("watching" if tid in watched else "unwatched")
+            title = row.get("name") or tid
+            name = QTableWidgetItem(title + ("\n" + tid if title != tid else ""))
+            name.setData(Qt.ItemDataRole.UserRole, tid)
+            self.table.setItem(index, 0, name)
+            folder = str(row.get("cwd") or "")
+            project = QTableWidgetItem(Path(folder).name)
+            project.setToolTip(folder)
+            self.table.setItem(index, 1, project)
+            text = self.text(state)
+            if record and record["state"] == "waiting":
+                text += " · " + timestamp(record["due"])
+            status = QTableWidgetItem(text)
+            status.setForeground(QColor("#79e3bd" if tid in watched else "#95a6bf"))
+            if record:
+                status.setToolTip(self.text(record["detail"]) + "\n" + record["id"])
+            self.table.setItem(index, 2, status)
+        self.table.clearSelection()
+        for index, row in enumerate(self.rows):
+            if row["id"] in selected:
+                self.table.selectionModel().select(self.table.model().index(index, 0),
+                    self.table.selectionModel().SelectionFlag.Select | self.table.selectionModel().SelectionFlag.Rows)
+        events = self.store.events()
+        self.events.setHorizontalHeaderLabels([self.text(k) for k in ("time", "thread", "event")])
+        self.events.setRowCount(len(events))
+        for index, event in enumerate(events):
+            for col, text in enumerate((timestamp(event["time"]), event["thread_id"] or "—", self.text(event["code"]))):
+                self.events.setItem(index, col, QTableWidgetItem(text))
+
+    def closeEvent(self, event):
+        if self.worker:
+            self.worker.stop.set()
+            self.worker.wake.set()
+        event.accept()
+
+
+def main(store=None):
+    app = QApplication.instance() or QApplication(sys.argv[:1])
+    app.setApplicationName("Auto Resume Agent")
+    app.setOrganizationName("AutoResumeAgent")
+    app.setStyleSheet(STYLE)
+    window = Window(store or Store())
+    window.show()
+    return app.exec()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

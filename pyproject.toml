@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "auto-resume-agent"
+version = "0.1.0"
+description = "Cross-platform Codex usage monitor and exact-session recovery"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = []
+
+[project.optional-dependencies]
+gui = ["PySide6==6.8.3"]
+build = ["pyinstaller>=6.11,<7", "Pillow>=11,<14"]
+test = ["pytest>=8,<10"]
+
+[project.scripts]
+auto-resume-agent = "auto_resume_agent.cli:main"
+
+[project.gui-scripts]
+auto-resume-agent-gui = "auto_resume_agent.gui:main"
+
+[tool.setuptools.package-data]
+auto_resume_agent = ["assets/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

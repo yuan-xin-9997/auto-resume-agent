@@ -1,2 +1,147 @@
-# auto-resume-agent
-跨平台的 AI AGENT 额度检测和会话恢复工具
+<p align="center"><img src="src/auto_resume_agent/assets/icon.png" width="112" alt="Auto Resume Agent icon"></p>
+
+# Auto Resume Agent
+
+Monitor your AI agent's usage limits and continue the exact interrupted session when capacity returns.
+
+[简体中文](README.zh-CN.md) · [Downloads](https://github.com/yuan-xin-9997/auto-resume-agent/releases) · [Testing & compatibility](docs/TESTING.md)
+
+**Windows, Ubuntu and macOS · native GUI + CLI · five interface languages · local state · no telemetry**
+
+Your agent hits a limit halfway through a task. Auto Resume Agent observes the failed turn, checks the usage windows reported by Codex, and submits a continuation to that session's exact UUID when quota becomes available. It never uses `--last` or types into an agent window.
+
+The first release supports **Codex CLI and local Codex desktop sessions**. Claude Code, Gemini CLI, cloud-only sessions and other agents are not implemented yet. The product name describes the broader project, not a claim that every agent is supported.
+
+![Dashboard with illustrative data](docs/screenshots/dashboard.png)
+
+*Illustrative session names and quotas; no personal conversation data.*
+
+| Feature | Behavior |
+| --- | --- |
+| Usage | Live primary/secondary windows, remaining percentage, local reset times, last check |
+| Recovery | Known quota limits, rate limits, temporary connection/stream/server failures |
+| Timing | Session checks every 5 seconds; quota every 30 seconds and at due deadlines |
+| Sleep/wake | Wall-clock deadlines are re-evaluated on the next scheduled check after wake |
+| Identity | Explicitly watched UUIDs only; no automatic recovery of every historical failure |
+| Delivery | Durable claim before submission; a timeout/crash never triggers blind resending |
+| Safety | Latest-turn check, user cancellation excluded, unknown errors excluded, hourly budget |
+| Languages | English · 简体中文 · 繁體中文 · 日本語 · 한국어 |
+
+**Important:** `Queued` means the Codex CLI accepted the continuation. It does **not** prove the original conversation resumed. Keep the original session open in Codex. A closed/unloaded session may remain queued until you open it. `Session progressed` means a newer turn exists; it does not attribute that turn to this tool. The app does not launch an unrestricted replacement agent in the background.
+
+## Install
+
+Download the archive matching your OS and processor from [Releases](https://github.com/yuan-xin-9997/auto-resume-agent/releases). Python is included in native bundles; **Codex CLI must be installed separately and logged in**. The tested integration is Codex CLI **0.163.0**. Run `doctor` to check other versions; the app-server interface is experimental and older versions may lack the required methods.
+
+| Platform | Archive | Open |
+| --- | --- | --- |
+| Windows 10 1809+ / 11, x64 | `*-windows-x64.zip` | Extract the whole archive, run `Launch.cmd` or `gui/AutoResumeAgent.exe` |
+| Ubuntu 24.04 / 26.04, x64 | `*-linux-x64.tar.gz` | Extract, run `sh install.sh`, launch from Applications |
+| macOS 27, Apple Silicon | `*-macos-arm64.tar.gz` | Extract, run `sh install.sh`, open `~/Applications/AutoResumeAgent.app` |
+| macOS 27, Intel | `*-macos-x64.tar.gz` | Same procedure, Intel build |
+
+These are target platforms. See [the actual verification matrix](docs/TESTING.md) for what has been tested. The bundles are unsigned and not notarized. Use your OS's normal approval flow if it requires one; the installer does not change security settings. macOS CLI is installed in `~/.local/bin`; add that directory to PATH if necessary.
+
+Verify the archive's SHA-256 against its adjacent `.sha256` file before extracting:
+
+```powershell
+# Windows
+Get-FileHash .\AutoResumeAgent-v0.1.0-windows-x64.zip -Algorithm SHA256
+```
+```sh
+# Ubuntu / macOS
+sha256sum AutoResumeAgent-v0.1.0-linux-x64.tar.gz
+shasum -a 256 AutoResumeAgent-v0.1.0-macos-arm64.tar.gz
+```
+
+### From source
+
+Python 3.11 or newer:
+
+```sh
+python -m venv .venv
+# Activate .venv using your shell's normal activation command
+python -m pip install '.[gui]'
+auto-resume-agent gui
+```
+
+For a headless machine, `python -m pip install .` installs the CLI without Qt. Ubuntu GUI runtime libraries can be installed with:
+
+```sh
+sudo apt-get install libegl1 libgl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 libxcb-xinerama0
+```
+
+## Quick start
+
+1. Install [Codex CLI](https://github.com/openai/codex), then run `codex login`.
+2. Open Auto Resume Agent. In Settings, select a language; specify the Codex executable if auto-detection fails.
+3. Select one or more sessions and click **Watch selected**. Load more if your session is older.
+4. Click **Enable recovery** and leave the monitor running. Keep the original Codex sessions open.
+5. See the dashboard and Activity page for waiting, queued, uncertain or progressed records.
+
+Recovery starts in observe-only mode on a new installation. Watching a session considers failures from up to one minute before you added it, then future failures. Closing the GUI stops its monitor; it does not install an invisible startup service. The saved enable/pause setting is retained for the next launch.
+
+### Command line
+
+For extracted Windows bundles, replace `auto-resume-agent` below with `cli\auto-resume-agent.exe`. For Linux bundles before installation, use `./cli/auto-resume-agent`.
+
+```sh
+auto-resume-agent doctor              # Read-only compatibility and login/usage check
+auto-resume-agent usage               # JSON usage windows
+auto-resume-agent sessions            # Paginated local session inventory (JSON lines)
+auto-resume-agent add SESSION_UUID    # Explicitly watch one session
+auto-resume-agent enable              # Allow recovery
+auto-resume-agent watch               # Foreground monitor; Ctrl+C to stop
+auto-resume-agent status              # Persisted quota, watched UUIDs and records
+auto-resume-agent pause               # Pause all automatic submissions
+auto-resume-agent remove SESSION_UUID # Stop watching; cancel pending recovery
+auto-resume-agent cancel RECOVERY_ID  # Cancel a waiting recovery record
+auto-resume-agent check               # One monitor pass; may send if enabled
+```
+
+Global options go before the subcommand: `auto-resume-agent --codex /path/to/codex --home /path/to/state doctor`. `--codex` is saved. `--home` or `ARA_HOME` isolates this tool's state. Set `CODEX_HOME` before launch to choose a Codex profile; watched sessions are bound to that home. A Codex executable may be a native binary or the standard npm wrapper (Node.js is required for the latter). Arbitrary shell wrappers are not executed.
+
+For persistent Linux or macOS monitoring, run `watch` under your normal service manager. Do not run another auto-resume product against the same sessions: the process lock prevents duplicates among this app's instances using the same state directory, not among unrelated tools or independent state directories.
+
+## Recovery rules
+
+- Only explicitly selected, local, unarchived sessions with supported sources are considered. Subagents are excluded.
+- Recovery requires a structured, recognized Codex failure and fresh quota information confirming available exposed windows. Unknown quota waits.
+- Exhausted primary **and** secondary windows are considered. A stale exhausted snapshot is never treated as fresh capacity just because its timestamp passed.
+- Temporary failures use bounded backoff; each session has at most five automatic submissions per hour. The allowance is shared across error types.
+- A newer turn supersedes a waiting record. Permission, authentication, policy, context-length, invalid-request and cancellation failures are never auto-recovered.
+- Submission intent is committed before `codex queue`. Ambiguous delivery becomes **uncertain** and requires checking the original session. There is no automatic resend button.
+- A small race remains between reading the latest turn and invoking `codex queue`: the CLI does not offer an expected-turn atomic precondition. Independent clients may act in that gap. This release cannot promise exactly-once execution across Codex and this app.
+
+Polling deadlines are targets, not real-time guarantees: system sleep, slow Codex responses, network failures and large watch lists can increase delay. The monitor does not wake a sleeping computer. Run it on each host where the sessions live.
+
+## Privacy and local files
+
+No telemetry, analytics or update network client. Authentication and requests to OpenAI are handled by your installed Codex. Auto Resume Agent's app-server client only invokes initialization, usage and thread metadata methods; it cannot approve tools or start turns. Recovery invokes the separate official `codex queue` command.
+
+Own SQLite state stores settings, watched UUIDs, numeric quota snapshots, classified recovery records and bounded event codes. It does not persist prompts, transcripts, raw errors, access tokens or API keys. Session labels/workspace paths are shown in memory in the GUI and printed by the `sessions` CLI command. Treat your own redirected CLI output accordingly.
+
+| OS | Default state directory |
+| --- | --- |
+| Windows | `%LOCALAPPDATA%\AutoResumeAgent` |
+| Linux | `${XDG_STATE_HOME:-~/.local/state}/auto-resume-agent` |
+| macOS | `~/Library/Application Support/AutoResumeAgent` |
+
+Uninstall by removing the extracted/installed app files and launchers. Remove the state directory separately only if you want to discard settings and recovery history. Keep it when upgrading so already-claimed interruptions are not submitted again.
+
+## Development
+
+```sh
+python -m pip install -e '.[gui,build,test]'
+python -m pytest -q
+python scripts/make_icons.py
+python scripts/build.py
+```
+
+Build on the target OS/architecture. GitHub Actions tests and builds native Windows x64, Linux x64, macOS arm64 and macOS x64 bundles. A version tag publishes a **prerelease** with archives and checksums after every build passes. Read [release notes](docs/RELEASE_NOTES.md) and [test evidence](docs/TESTING.md).
+
+## Acknowledgments and license
+
+Inspired by [songyb111-gachon/codex-auto-resume-windows](https://github.com/songyb111-gachon/codex-auto-resume-windows), especially its exact-session identity and cautious delivery model. This project is an independent cross-platform implementation and is not affiliated with OpenAI or the reference project. The README follows its install-first, limitations-up-front approach.
+
+Integration reference: [official Codex app-server documentation](https://learn.chatgpt.com/docs/app-server). MIT license for this project's code. Bundled third-party libraries retain their own licenses; see [notices](THIRD_PARTY_NOTICES.md).
