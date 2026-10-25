@@ -27,6 +27,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Linux GUI libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 libxcb-xinerama0
       - name: Install
         run: python -m pip install -e ".[gui,build,test]"
       - name: Test
@@ -44,6 +47,18 @@ jobs:
             dist/auto-resume-agent/auto-resume-agent.exe --version
           else
             dist/auto-resume-agent/auto-resume-agent --version
+          fi
+      - name: Smoke-test bundled GUI
+        shell: bash
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            dist/AutoResumeAgent/AutoResumeAgent.exe --smoke-test
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            dist/AutoResumeAgent.app/Contents/MacOS/AutoResumeAgent --smoke-test
+          else
+            dist/AutoResumeAgent/AutoResumeAgent --smoke-test
           fi
       - uses: actions/upload-artifact@v4
         with:

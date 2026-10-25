@@ -52,7 +52,9 @@ class Engine:
                 current = next((r for r in records if r["id"] == key), None)
                 if current is None:
                     # Bound chains of repeated failures; a new user turn resets the chain in a later version.
-                    recent = sum(r["thread_id"] == tid and r["submitted"] is not None and now-r["submitted"] < 3600 for r in records)
+                    with self.store.db() as db:
+                        recent = db.execute("SELECT count(*) FROM recoveries WHERE thread_id=? AND submitted>?",
+                                            (tid, now-3600)).fetchone()[0]
                     initial = max(now, completed + delay(recent))
                     if kind == "usage_limit" and self.snapshot.get("reset_at"):
                         initial = max(now, self.snapshot["reset_at"] + 2)

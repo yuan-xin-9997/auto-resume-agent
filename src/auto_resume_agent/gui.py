@@ -422,8 +422,21 @@ def main(store=None):
     app.setApplicationName("Auto Resume Agent")
     app.setOrganizationName("AutoResumeAgent")
     app.setStyleSheet(STYLE)
-    window = Window(store or Store())
+    smoke = "--smoke-test" in sys.argv
+    if smoke:
+        import tempfile
+        isolated = tempfile.TemporaryDirectory()
+        store = Store(isolated.name)
+    window = Window(store or Store(), start_worker=not smoke)
     window.show()
+    if smoke:
+        def finish_smoke():
+            if not window.isVisible():
+                app.exit(1)
+                return
+            window.close()
+            app.quit()
+        QTimer.singleShot(1500, finish_smoke)
     return app.exec()
 
 
