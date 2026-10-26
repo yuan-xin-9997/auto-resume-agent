@@ -70,8 +70,13 @@ def test_checkbox_selection_tracks_ids_and_survives_refresh(tmp_path):
     assert [r["id"] for r in window.store.watched()] == [ids[1]]
     window.select_all.setChecked(True)
     assert set(window.selected()) == set(ids)
+    # A provider may repeat IDs in a page: all-selected must still toggle off.
+    window.rows.append(dict(window.rows[0]))
+    window.render()
+    assert window.select_all.isChecked()
     window.select_all.setChecked(False)
     assert window.selected() == []
+    window.rows.pop()
     assert not window.watch_button.isEnabled()
     # A row highlight is not a checked target; unchecked rows cannot be acted on accidentally.
     window.table.selectRow(0)

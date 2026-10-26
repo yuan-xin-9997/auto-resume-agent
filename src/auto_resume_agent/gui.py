@@ -387,7 +387,7 @@ class Window(QMainWindow):
 
     def selection_controls(self):
         self.select_all.blockSignals(True)
-        self.select_all.setChecked(bool(self.rows) and len(self.checked_ids) == len(self.rows))
+        self.select_all.setChecked(bool(self.rows) and self.checked_ids == {row["id"] for row in self.rows})
         self.select_all.blockSignals(False)
         self.select_all.setEnabled(bool(self.rows))
         self.watch_button.setEnabled(bool(self.checked_ids))
@@ -429,7 +429,8 @@ class Window(QMainWindow):
             if kind == "threads":
                 page, append = data
                 rows = page.get("data", [])
-                self.rows = self.rows + [r for r in rows if r["id"] not in {x["id"] for x in self.rows}] if append else rows
+                # Providers can repeat UUIDs within a page as well as across pages.
+                self.rows = list({r["id"]: r for r in ((self.rows if append else []) + rows)}.values())
                 self.cursor = page.get("nextCursor")
             elif kind == "tick":
                 self.latest_tick = data
