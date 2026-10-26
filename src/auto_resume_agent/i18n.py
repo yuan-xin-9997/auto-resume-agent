@@ -37,6 +37,12 @@ for _locale, _values in TRANSLATIONS.items():
 TRANSLATIONS = {key: dict(zip(EN, values)) for key, values in TRANSLATIONS.items()}
 
 EXTRA = {
+    "five_hours": ("5 hours", "5 小时", "5 小時", "5時間", "5시간"),
+    "one_week": ("1 week", "一周", "一週", "1週間", "1주"),
+    "select": ("Select", "选择", "選取", "選択", "선택"),
+    "select_all": ("Select all", "全选", "全選", "すべて選択", "모두 선택"),
+    "hint": ("Tick sessions, click Watch selected, then enable recovery. Keep the original session open.", "勾选会话并点击监控，再开启自动恢复。请保持原会话打开。", "勾選對話並點擊監控，再開啟自動恢復。請保持原對話開啟。", "セッションにチェックして監視し、自動再開を有効にします。元のセッションを開いておいてください。", "세션을 체크해 감시한 뒤 자동 재개를 켜세요. 원래 세션을 열어 두세요."),
+    "opencode_hint": ("Tick sessions, click Watch selected, then enable recovery. Keep the OpenCode server running.", "勾选会话并点击监控，再开启自动恢复。请保持 OpenCode 服务运行。", "勾選對話並點擊監控，再開啟自動恢復。請保持 OpenCode 服務執行。", "セッションにチェックして監視し、自動再開を有効にします。OpenCode サーバーを起動したままにしてください。", "세션을 체크해 감시한 뒤 자동 재개를 켜세요. OpenCode 서버를 실행 상태로 두세요."),
     "keeper_toggle": ("Start each Codex 5-hour window with a new ‘回复 OK’ session (default off)", "每个 Codex 5 小时窗口新建会话发送“回复 OK”（默认关闭）", "每個 Codex 5 小時視窗建立對話傳送「回复 OK」（預設關閉）", "Codex の各 5 時間枠で新規セッションに「回复 OK」を送信（既定 OFF）", "Codex의 각 5시간 창에서 새 세션에 ‘回复 OK’ 전송 (기본 꺼짐)"),
     "keeper_off": ("Off. No automatic window-start requests.", "已关闭，不会自动发送窗口启动请求。", "已關閉，不會自動傳送視窗啟動請求。", "OFF：枠開始の自動リクエストは送信しません。", "꺼짐: 창 시작 요청을 자동으로 보내지 않습니다."),
     "keeper_independent": ("Independent of recovery; uses one normal request after the reported reset, even with unused quota.", "独立于会话恢复；即使额度未用完，也在服务端重置时间后消耗一次正常请求。", "獨立於對話恢復；即使額度未用完，也在伺服器重設時間後使用一次正常請求。", "再開機能とは独立。残量があってもサーバーのリセット後に通常リクエストを 1 回使用します。", "복구와 별개로 동작합니다. 잔여 한도가 있어도 서버 초기화 후 일반 요청 1회를 사용합니다."),
@@ -72,3 +78,11 @@ for _key, _texts in EXTRA.items():
 
 def tr(key, language="en"):
     return TRANSLATIONS.get(language, EN).get(key, EN.get(key, key))
+
+
+def duration_label(minutes, language="en"):
+    if minutes == 300:
+        return tr("five_hours", language)
+    if minutes == 10080:
+        return tr("one_week", language)
+    return f"{minutes or '?'} {tr('minutes', language)}"

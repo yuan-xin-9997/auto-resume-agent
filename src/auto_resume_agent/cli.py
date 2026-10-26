@@ -22,13 +22,21 @@ def main(argv=None):
     parser.add_argument("--opencode-url", help="OpenCode HTTP server URL (saved)")
     parser.add_argument("--opencode-directory", help="OpenCode workspace directory (saved)")
     sub = parser.add_subparsers(dest="action")
-    for name in ("gui", "usage", "sessions", "status", "pause", "enable", "watch", "check", "doctor"):
+    for name in ("gui", "usage", "sessions", "status", "pause", "enable", "watch", "check", "doctor", "install"):
         sub.add_parser(name)
     for name in ("add", "remove", "cancel"):
         sub.add_parser(name).add_argument("id")
     sub.add_parser("window-keeper", help="Codex five-hour window first request (default off)").add_argument(
         "mode", choices=("on", "off", "status"), nargs="?", default="status")
     args = parser.parse_args(argv)
+    if args.action == "install":
+        from .install import install
+        try:
+            print(json.dumps(install(), indent=2))
+        except (OSError, ValueError) as error:
+            print(json.dumps({"error": str(error)}), file=sys.stderr)
+            return 1
+        return 0
     if args.opencode_url is not None:
         from .opencode import endpoint
         try:

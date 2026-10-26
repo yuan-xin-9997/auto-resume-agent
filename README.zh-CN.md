@@ -33,7 +33,7 @@ Agent 任务中途额度耗尽后，本软件检测失败轮次，查询 Codex �
 
 | 系统 | 包名 | 启动方式 |
 | --- | --- | --- |
-| Windows 10 1809+ / 11 x64 | `*-windows-x64.zip` | 完整解压，运行 `Launch.cmd` 或 `gui/AutoResumeAgent.exe` |
+| Windows 10 1809+ / 11 x64 | `*-windows-x64.zip` | 完整解压，运行 `Install.cmd`，之后使用桌面／开始菜单快捷方式 |
 | Ubuntu 24.04 / 26.04 x64 | `*-linux-x64.tar.gz` | 解压，运行 `sh install.sh`，从应用菜单打开 |
 | macOS 27 Apple Silicon | `*-macos-arm64.tar.gz` | 解压，运行 `sh install.sh`，打开 `~/Applications/AutoResumeAgent.app` |
 | macOS 27 Intel | `*-macos-x64.tar.gz` | 同上，选择 Intel 包 |
@@ -41,6 +41,12 @@ Agent 任务中途额度耗尽后，本软件检测失败轮次，查询 Codex �
 以上是目标平台；请以[实际测试矩阵](docs/TESTING.md)为准。程序未进行商业代码签名和苹果公证，系统可能要求按正常流程批准打开。安装脚本不会修改系统安全设置。Mac CLI 放在 `~/.local/bin`，必要时将该目录加入 PATH。
 
 使用压缩包旁的 `.sha256` 文件校验下载：Windows 用 `Get-FileHash 文件名 -Algorithm SHA256`，Ubuntu 用 `sha256sum 文件名`，Mac 用 `shasum -a 256 文件名`。
+
+Windows 固定安装到 `%LOCALAPPDATA%/Programs/AutoResumeAgent`。每次下载新版后运行 `Install.cmd`，即可更新程序与快捷方式；设置和监控会话仍保存在 `%LOCALAPPDATA%/AutoResumeAgent`。也可使用 `Launch.cmd` 便携运行。
+
+勾选会话复选框或使用“全选”，然后点击“监控所选会话”或“取消监控”；单独勾选不会改变监控状态。刷新时保留勾选。额度窗口以“5 小时”“一周”显示，支持五种界面语言。
+
+[本机更新流程](docs/LOCAL_UPDATES.md)
 
 ### 从源码运行
 

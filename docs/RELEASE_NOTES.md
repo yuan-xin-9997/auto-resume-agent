@@ -1,16 +1,11 @@
-# Auto Resume Agent v0.3.0
+# Auto Resume Agent v0.4.0
 
-Adds an optional Codex five-hour window starter, **disabled by default**.
+- Localized quota labels: 300 minutes becomes 5 hours; 10080 minutes becomes 1 week.
+- Session checkboxes and Select all support batch watch/unwatch. Checked UUIDs survive refreshes; selection alone never changes monitoring.
+- Aligned session headers and cells, clearer checkbox indicators and more room for session rows.
+- Windows Install.cmd deploys to a stable per-user directory, updates Desktop/Start Menu shortcuts, and preserves existing settings, monitored sessions and recovery records.
+- Updated English/Chinese documentation and illustrative screenshots.
 
-- GUI checkbox and CLI `window-keeper on|off|status`, independent of session recovery.
-- After the reported primary 300-minute reset time, even with unused quota, create a new dedicated read-only helper session and send exactly `回复 OK`.
-- Recheck all exposed quota windows; unknown availability and weekly/spending blocks wait.
-- Durable at-most-once claim per boundary, at least five hours between attempts, no catch-up burst after sleep, and no blind replay after crash/timeout.
-- Separate helper RPC client is restricted to its newly created thread and one fixed-message turn; existing user conversations are not used for this feature.
-- Five-language controls, status and bilingual documentation. Existing Codex/OpenCode recovery remains available.
+74 automated tests pass, including translated labels, checkbox batch operations and package validation. Native CI builds Windows x64, Linux x64 and macOS arm64/x64 GUI + CLI bundles with SHA-256 files.
 
-This uses one normal model request and attempts to start the next usage period early. It cannot force a quota reset or guarantee a changed server-side reset time. The monitor must remain running. Turning the setting off prevents future submissions; already submitted requests cannot be recalled.
-
-71 automated tests cover timing, safety, default-off behavior, controls and RPC delivery. Live Windows checks verified new-thread creation and prompt acceptance; a provider stream outage prevented verification of a real OK reply. The fixture verifies completion handling. See docs/TESTING.md for limits. The feature remains off after installation/upgrade unless explicitly enabled.
-
-Includes GUI + CLI and SHA-256 files for Windows x64, Linux x64, macOS arm64/x64. Codex/OpenCode are external prerequisites. Prerelease; not signed with a trusted developer certificate/notarized.
+The optional Codex five-hour window starter remains disabled by default. Existing recovery and provider limitations still apply; see docs/TESTING.md. Prerelease; unsigned and not notarized.

@@ -61,3 +61,9 @@ python scripts/build.py
 ## Known limits
 
 Codex CLI 0.163.0 is the integration baseline. App-server is experimental. Other versions must pass doctor and may require adapter changes. Queued delivery requires an eligible session consumer; closed conversations can stay queued. No safe automatic takeover is implemented. A newer turn is displayed as progression, never as proven delivery of this tool's continuation. Exactly-once execution cannot be promised across the CLI boundary. The monitor cannot coordinate with the reference Windows product; do not enable both on one session.
+
+## v0.4.0 interface and Windows deployment
+
+74 automated tests pass on the development Windows 11 PC. New coverage checks five-language quota labels, checkbox targets independent of row highlighting, select-all/clear, selection preservation by UUID across refresh/reordering, removed rows, aligned headers/cells, and Windows package validation. Screenshots use synthetic sessions only.
+
+Windows release installation uses a fixed per-user directory and preserves the separate SQLite state directory. The local deployment procedure includes SHA-256 verification, an SQLite backup, before/after settings and watched-session comparison, and inspection of the running native GUI version. See [LOCAL_UPDATES.md](LOCAL_UPDATES.md). Other platform compatibility findings above remain unchanged.

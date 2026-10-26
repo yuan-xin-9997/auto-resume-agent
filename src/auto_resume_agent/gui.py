@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
     QHeaderView, QAbstractItemView, QStackedWidget, QFrame, QProgressBar, QMessageBox, QCheckBox)
 
 from .engine import Engine
-from .i18n import LANGUAGES, tr
+from .i18n import LANGUAGES, tr, duration_label
 from .protocol import Codex, BackendError
 from .store import Store
 from .backends import create_backend, selected_store, configuration
@@ -41,8 +41,10 @@ QPushButton#primary:hover { background: #8cebc9; }
 QPushButton#nav { text-align: left; background: transparent; border: none; padding: 13px; }
 QPushButton#nav:checked { background: #24384a; color: #78e5c0; }
 QTableWidget { background: #141d2a; gridline-color: #27354a; border: 1px solid #29374c; border-radius: 8px; selection-background-color: #294b54; }
-QTableWidget::item { padding: 8px; }
-QHeaderView::section { background: #1c2839; color: #a8b8d0; border: none; padding: 12px; }
+QTableWidget::item { padding: 12px; }
+QHeaderView::section { background: #1c2839; color: #a8b8d0; border: none; padding: 12px 3px; }
+QCheckBox::indicator, QTableWidget::indicator { width: 16px; height: 16px; border: 1px solid #8398b4; border-radius: 3px; background: #141d2a; }
+QCheckBox::indicator:hover, QTableWidget::indicator:hover { border-color: #8cebc9; }
 QLineEdit, QComboBox { background: #1c2839; border: 1px solid #3b4c67; border-radius: 6px; padding: 9px; }
 QProgressBar { background: #2c3a50; border: none; border-radius: 4px; max-height: 7px; }
 QProgressBar::chunk { background: #69dfb6; border-radius: 4px; }
@@ -50,6 +52,7 @@ QToolTip { color: #e6edf7; background: #243247; border: 1px solid #425676; }
 """
 STYLE = STYLE.replace("'Segoe UI', 'Noto Sans', sans-serif", {
     "win32": "'Microsoft YaHei UI'", "darwin": "'PingFang SC'"}.get(sys.platform, "'Noto Sans CJK SC'"))
+STYLE += 'QCheckBox::indicator:checked, QTableWidget::indicator:checked { background: #64e1b4; border-color: #64e1b4; image: url("' + (ASSETS / 'check.svg').as_posix() + '"); }'
 
 
 def timestamp(value):
@@ -115,6 +118,7 @@ class Window(QMainWindow):
         self.language = store.get("language", "en")
         self.translated = []
         self.rows = []
+        self.checked_ids = set()
         self.cursor = None
         self.latest_tick = {}
         self.worker = None
@@ -167,7 +171,8 @@ class Window(QMainWindow):
         self.render()
 
     def text(self, key):
-        value = tr("opencode_help" if key == "help_text" and self.agent == "opencode" else key, self.language)
+        translated_key = {"help_text": "opencode_help", "hint": "opencode_hint"}.get(key, key) if self.agent == "opencode" else key
+        value = tr(translated_key, self.language)
         if self.agent == "opencode" and key in ("privacy", "scope", "hint", "about", "thread"):
             value = value.replace("Codex", "OpenCode").replace("UUID", "ID")
         return value.replace("0.1.0", __version__)
@@ -196,6 +201,7 @@ class Window(QMainWindow):
 
     def build_dashboard(self):
         box = self.page()
+        box.setSpacing(10)
         top = QHBoxLayout()
         top.addWidget(self.label("dashboard", "title"))
         top.addStretch()
@@ -237,16 +243,25 @@ class Window(QMainWindow):
         box.addWidget(self.label("sessions", "section"))
         box.addWidget(self.label("hint", "muted", wrap=True))
         buttons = QHBoxLayout()
-        buttons.addWidget(self.button("watch", self.watch_selected))
-        buttons.addWidget(self.button("unwatch", self.unwatch_selected))
+        self.select_all = QCheckBox(self.text("select_all"))
+        self.translated.append((self.select_all, "select_all"))
+        self.select_all.toggled.connect(self.check_all)
+        buttons.addWidget(self.select_all)
+        self.watch_button = self.button("watch", self.watch_selected)
+        self.unwatch_button = self.button("unwatch", self.unwatch_selected)
+        buttons.addWidget(self.watch_button)
+        buttons.addWidget(self.unwatch_button)
         buttons.addStretch()
         self.more = self.button("more", self.load_more)
         buttons.addWidget(self.more)
         box.addLayout(buttons)
-        self.table = self.make_table(3)
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        self.table.setColumnWidth(1, 190)
-        self.table.setColumnWidth(2, 270)
+        self.table = self.make_table(4)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+        self.table.setColumnWidth(0, 70)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.table.setColumnWidth(2, 190)
+        self.table.setColumnWidth(3, 270)
+        self.table.itemChanged.connect(self.selection_changed)
         box.addWidget(self.table, 1)
         box.addWidget(self.label("scope", "muted"))
 
@@ -256,9 +271,11 @@ class Window(QMainWindow):
         table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         table.verticalHeader().hide()
+        table.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         table.setShowGrid(False)
+        table.setWordWrap(False)
         table.setAlternatingRowColors(False)
-        table.verticalHeader().setDefaultSectionSize(65)
+        table.verticalHeader().setDefaultSectionSize(76)
         return table
 
     def build_activity(self):
@@ -321,6 +338,7 @@ class Window(QMainWindow):
         self.store = selected_store(self.base_store, self.agent)
         self.store.set("enabled", False)
         self.rows, self.cursor = [], None
+        self.checked_ids.clear()
         self.connection.setText(self.text("saved"))
         self.refresh()
 
@@ -331,6 +349,7 @@ class Window(QMainWindow):
         self.store = selected_store(self.base_store, self.agent)
         self.store.set("enabled", False)
         self.rows, self.cursor = [], None
+        self.checked_ids.clear()
         for widget, key in self.translated:
             widget.setText(self.text(key))
         self.connection.setText(self.text("unknown"))
@@ -350,7 +369,29 @@ class Window(QMainWindow):
             self.worker.request("threads", self.cursor)
 
     def selected(self):
-        return [self.rows[index.row()]["id"] for index in self.table.selectionModel().selectedRows()]
+        return [row["id"] for row in self.rows if row["id"] in self.checked_ids]
+
+    def selection_changed(self, item):
+        if item.column() != 0:
+            return
+        tid = item.data(Qt.ItemDataRole.UserRole)
+        if item.checkState() == Qt.CheckState.Checked:
+            self.checked_ids.add(tid)
+        else:
+            self.checked_ids.discard(tid)
+        self.selection_controls()
+
+    def check_all(self, checked):
+        self.checked_ids = {row["id"] for row in self.rows} if checked else set()
+        self.render()
+
+    def selection_controls(self):
+        self.select_all.blockSignals(True)
+        self.select_all.setChecked(bool(self.rows) and len(self.checked_ids) == len(self.rows))
+        self.select_all.blockSignals(False)
+        self.select_all.setEnabled(bool(self.rows))
+        self.watch_button.setEnabled(bool(self.checked_ids))
+        self.unwatch_button.setEnabled(bool(self.checked_ids))
 
     def watch_selected(self):
         for tid in self.selected():
@@ -405,7 +446,7 @@ class Window(QMainWindow):
         self.more.setEnabled(bool(self.cursor))
         keeper = window_keeper.status(self.base_store)
         self.keeper_toggle.setVisible(self.agent == "codex")
-        self.keeper_status.setVisible(self.agent == "codex")
+        self.keeper_status.setVisible(self.agent == "codex" and keeper["enabled"])
         self.keeper_toggle.blockSignals(True)
         self.keeper_toggle.setChecked(keeper["enabled"])
         self.keeper_toggle.blockSignals(False)
@@ -438,7 +479,7 @@ class Window(QMainWindow):
                 card_box = QVBoxLayout(card)
                 card_box.setContentsMargins(18, 15, 18, 15)
                 if window:
-                    label = f'{window["bucket"]} · {window.get("minutes") or "?"} {self.text("minutes")}'
+                    label = f'{window["bucket"]} · {duration_label(window.get("minutes"), self.language)}'
                     left = max(0, 100 - window["used_percent"])
                     amount = f'{left:g}% {self.text("remaining")}'
                     reset = self.text("reset") + " · " + timestamp(window.get("reset_at"))
@@ -462,10 +503,10 @@ class Window(QMainWindow):
                 self.quota_layout.addWidget(card)
         watched = {r["id"] for r in self.store.watched()}
         records = self.store.records()
-        self.table.setHorizontalHeaderLabels([self.text(k) for k in ("thread", "project", "status")])
-        # Preserve selected UUIDs while replacing rows after a refresh.
-        selected = {self.table.item(i.row(), 0).data(Qt.ItemDataRole.UserRole)
-                    for i in self.table.selectionModel().selectedRows() if self.table.item(i.row(), 0)}
+        self.table.setHorizontalHeaderLabels([self.text(k) for k in ("select", "thread", "project", "status")])
+        # Checkbox state follows IDs, never row positions or transient row highlights.
+        self.checked_ids.intersection_update(row["id"] for row in self.rows)
+        self.table.blockSignals(True)
         self.table.setRowCount(len(self.rows))
         for index, row in enumerate(self.rows):
             tid = row["id"]
@@ -473,12 +514,18 @@ class Window(QMainWindow):
             state = record["state"] if record else ("watching" if tid in watched else "unwatched")
             title = row.get("name") or tid
             name = QTableWidgetItem(title + ("\n" + tid if title != tid else ""))
+            name.setToolTip(title + "\n" + tid)
             name.setData(Qt.ItemDataRole.UserRole, tid)
-            self.table.setItem(index, 0, name)
+            check = QTableWidgetItem()
+            check.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsSelectable)
+            check.setData(Qt.ItemDataRole.UserRole, tid)
+            check.setCheckState(Qt.CheckState.Checked if tid in self.checked_ids else Qt.CheckState.Unchecked)
+            self.table.setItem(index, 0, check)
+            self.table.setItem(index, 1, name)
             folder = str(row.get("cwd") or "")
             project = QTableWidgetItem(Path(folder).name)
             project.setToolTip(folder)
-            self.table.setItem(index, 1, project)
+            self.table.setItem(index, 2, project)
             text = self.text(state)
             if record and record["state"] == "waiting":
                 text += " · " + timestamp(record["due"])
@@ -486,12 +533,11 @@ class Window(QMainWindow):
             status.setForeground(QColor("#79e3bd" if tid in watched else "#95a6bf"))
             if record:
                 status.setToolTip(self.text(record["detail"]) + "\n" + record["id"])
-            self.table.setItem(index, 2, status)
-        self.table.clearSelection()
-        for index, row in enumerate(self.rows):
-            if row["id"] in selected:
-                self.table.selectionModel().select(self.table.model().index(index, 0),
-                    self.table.selectionModel().SelectionFlag.Select | self.table.selectionModel().SelectionFlag.Rows)
+            self.table.setItem(index, 3, status)
+            for cell in (name, project, status):
+                cell.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self.table.blockSignals(False)
+        self.selection_controls()
         events = self.store.events()
         self.events.setHorizontalHeaderLabels([self.text(k) for k in ("time", "thread", "event")])
         self.events.setRowCount(len(events))

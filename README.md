@@ -35,7 +35,7 @@ Download the archive matching your OS and processor from [Releases](https://gith
 
 | Platform | Archive | Open |
 | --- | --- | --- |
-| Windows 10 1809+ / 11, x64 | `*-windows-x64.zip` | Extract the whole archive, run `Launch.cmd` or `gui/AutoResumeAgent.exe` |
+| Windows 10 1809+ / 11, x64 | `*-windows-x64.zip` | Extract the whole archive, run `Install.cmd`, then use the Desktop/Start Menu shortcut |
 | Ubuntu 24.04 / 26.04, x64 | `*-linux-x64.tar.gz` | Extract, run `sh install.sh`, launch from Applications |
 | macOS 27, Apple Silicon | `*-macos-arm64.tar.gz` | Extract, run `sh install.sh`, open `~/Applications/AutoResumeAgent.app` |
 | macOS 27, Intel | `*-macos-x64.tar.gz` | Same procedure, Intel build |
@@ -46,13 +46,19 @@ Verify the archive's SHA-256 against its adjacent `.sha256` file before extracti
 
 ```powershell
 # Windows
-Get-FileHash .\AutoResumeAgent-v0.3.0-windows-x64.zip -Algorithm SHA256
+Get-FileHash .\AutoResumeAgent-v0.4.0-windows-x64.zip -Algorithm SHA256
 ```
 ```sh
 # Ubuntu / macOS
-sha256sum AutoResumeAgent-v0.3.0-linux-x64.tar.gz
-shasum -a 256 AutoResumeAgent-v0.3.0-macos-arm64.tar.gz
+sha256sum AutoResumeAgent-v0.4.0-linux-x64.tar.gz
+shasum -a 256 AutoResumeAgent-v0.4.0-macos-arm64.tar.gz
 ```
+
+Windows installs to `%LOCALAPPDATA%/Programs/AutoResumeAgent`. Run `Install.cmd` from each new release to update the same location and shortcuts; settings and monitored sessions stay in `%LOCALAPPDATA%/AutoResumeAgent`. `Launch.cmd` remains available for portable use.
+
+Tick session checkboxes to choose batch targets, or use **Select all**. Then click **Watch selected** or **Unwatch**. Checking a box alone does not change monitoring. Selections survive refreshes. Quota windows display **5 hours** and **1 week**, localized into all five languages.
+
+[Local deployment workflow](docs/LOCAL_UPDATES.md)
 
 ### From source
 
