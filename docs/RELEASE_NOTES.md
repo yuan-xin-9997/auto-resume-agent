@@ -1,12 +1,9 @@
-# Auto Resume Agent v0.4.1
+# Auto Resume Agent v0.4.2
 
-- Localized quota labels: 300 minutes becomes 5 hours; 10080 minutes becomes 1 week.
-- Deduplicate provider session UUIDs, including duplicates within one page; select-all correctly clears selections even with repeated IDs.
-- Session checkboxes and Select all support batch watch/unwatch. Checked UUIDs survive refreshes; selection alone never changes monitoring.
-- Aligned session headers and cells, clearer checkbox indicators and more room for session rows.
-- Windows Install.cmd deploys to a stable per-user directory, updates Desktop/Start Menu shortcuts, and preserves existing settings, monitored sessions and recovery records.
-- Updated English/Chinese documentation and illustrative screenshots.
+Fix the session status after watching a previously cancelled session again. An old cancelled recovery no longer hides the current active watch: the row immediately displays Watching (监控中) and stays correct after refresh.
 
-74 automated tests pass, including translated labels, checkbox batch operations and package validation. Native CI builds Windows x64, Linux x64 and macOS arm64/x64 GUI + CLI bundles with SHA-256 files.
+Historical cancellation records remain intact; watching again does not reset delivery claims or replay cancelled requests. Applies to both Codex and OpenCode session lists.
 
-The optional Codex five-hour window starter remains disabled by default. Existing recovery and provider limitations still apply; see docs/TESTING.md. Prerelease; unsigned and not notarized.
+75 automated tests include the watch → unwatch → cancelled → watch-again sequence, refreshed status, and unchanged cancellation history. Native GUI/CLI bundles and SHA-256 files are provided for Windows x64, Linux x64 and macOS arm64/x64.
+
+Windows Install.cmd updates the stable per-user installation while preserving settings, watched sessions, recovery history and feature opt-ins. Prerelease; unsigned and not notarized. Existing provider and recovery limitations remain documented in docs/TESTING.md.

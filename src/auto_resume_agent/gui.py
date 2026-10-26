@@ -512,6 +512,9 @@ class Window(QMainWindow):
         for index, row in enumerate(self.rows):
             tid = row["id"]
             record = next((r for r in records if r["thread_id"] == tid), None)
+            # A cancelled historical recovery must not hide an active watch.
+            if tid in watched and record and record["state"] == "cancelled":
+                record = None
             state = record["state"] if record else ("watching" if tid in watched else "unwatched")
             title = row.get("name") or tid
             name = QTableWidgetItem(title + ("\n" + tid if title != tid else ""))

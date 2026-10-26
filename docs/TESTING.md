@@ -67,3 +67,7 @@ Codex CLI 0.163.0 is the integration baseline. App-server is experimental. Other
 74 automated tests pass on the development Windows 11 PC. New coverage checks five-language quota labels, checkbox targets independent of row highlighting, select-all/clear, selection preservation by UUID across refresh/reordering, removed rows, aligned headers/cells, and Windows package validation. Screenshots use synthetic sessions only.
 
 Windows release installation uses a fixed per-user directory and preserves the separate SQLite state directory. The local deployment procedure includes SHA-256 verification, an SQLite backup, before/after settings and watched-session comparison, and inspection of the running native GUI version. See [LOCAL_UPDATES.md](LOCAL_UPDATES.md). Other platform compatibility findings above remain unchanged.
+
+## v0.4.2 — rewatch status
+
+75 tests pass on the development Windows 11 PC. The new regression reproduces a waiting recovery cancelled by unwatching, watches the same UUID again, checks the immediate and refreshed Watching status, and verifies that historical cancellation records remain unchanged. This is a status-display fix and does not revive or resend cancelled recovery requests.

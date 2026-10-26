@@ -93,6 +93,33 @@ def test_checkbox_selection_tracks_ids_and_survives_refresh(tmp_path):
     window.close()
 
 
+def test_rewatch_cancelled_recovery_shows_watching_without_resetting_history(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    store = Store(tmp_path)
+    window = Window(store, start_worker=False)
+    window.languages.setCurrentIndex(window.languages.findData("zh-CN"))
+    tid, turn = str(uuid.uuid4()), str(uuid.uuid4())
+    store.watch(tid)
+    with store.db() as db:
+        db.execute("INSERT INTO recoveries(id,thread_id,turn_id,kind,state,due,created) VALUES (?,?,?,?,?,?,?)",
+                   ("fixture", tid, turn, "usage_limit", "waiting", 100, 90))
+    window.rows = [{"id": tid, "name": "Rewatch fixture", "cwd": str(tmp_path)}]
+    window.render()
+    window.table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+    window.unwatch_selected()
+    assert window.table.item(0, 3).text() == window.text("cancelled")
+    assert not store.watched()
+    cancelled = store.records()
+    window.watch_selected()
+    assert [r["id"] for r in store.watched()] == [tid]
+    assert window.table.item(0, 3).text() == "监控中"
+    assert not window.table.item(0, 3).toolTip()
+    window.render()
+    assert window.table.item(0, 3).text() == "监控中"
+    assert store.records() == cancelled  # Never revive cancelled/delivered requests.
+    window.close()
+
+
 def test_quota_duration_labels_all_languages():
     from auto_resume_agent.i18n import duration_label
     assert duration_label(300, "zh-CN") == "5 小时"
