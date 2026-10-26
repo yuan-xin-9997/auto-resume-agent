@@ -4,6 +4,7 @@ import time
 from .model import usage, category, delay, next_delay, numeric
 from .store import engine_lock, valid_id
 from .protocol import BackendError
+from .backends import snapshot
 
 MESSAGE = "Continue the unfinished work from this interruption. Respect all existing instructions and stop if user input or approval is required."
 
@@ -27,7 +28,7 @@ class Engine:
         due = min((r["due"] for r in records if r["state"] == "waiting"), default=None)
         # Re-query when a deadline arrives, including the first tick after system wake.
         if now - self.last_usage >= 30 or (due is not None and due <= now):
-            self.snapshot = usage(self.backend.usage())
+            self.snapshot = snapshot(self.backend)
             self.last_usage = now
             self.store.set("usage", {**self.snapshot, "checked_at": now})
         watched = self.store.watched()
@@ -38,10 +39,10 @@ class Engine:
                 metadata = self.backend.thread(tid)
                 # Archived, imported, and subagent threads never receive automatic messages.
                 source = metadata.get("source")
-                if metadata.get("archived") or not isinstance(source, str) or source not in ("cli", "vscode", "appServer", "exec"):
+                if metadata.get("archived") or not isinstance(source, str) or source not in ("cli", "vscode", "appServer", "exec", "opencode"):
                     continue
                 turn = self.backend.latest(tid)
-                if not turn or not valid_id(turn.get("id")):
+                if not turn or not getattr(self.backend, "valid_turn_id", valid_id)(turn.get("id")):
                     continue
                 self._reconcile(tid, turn, records)
                 kind = category(turn)
@@ -56,6 +57,8 @@ class Engine:
                         recent = db.execute("SELECT count(*) FROM recoveries WHERE thread_id=? AND submitted>?",
                                             (tid, now-3600)).fetchone()[0]
                     initial = max(now, completed + delay(recent))
+                    if numeric(turn.get("retryAt")):
+                        initial = max(initial, turn["retryAt"])
                     if kind == "usage_limit" and self.snapshot.get("reset_at"):
                         initial = max(now, self.snapshot["reset_at"] + 2)
                     state = "waiting" if recent < 5 else "attention"
@@ -68,7 +71,7 @@ class Engine:
                     self._attempt(current, now)
             except (BackendError, KeyError, TypeError, ValueError):
                 problems.append(tid)
-        pending = [r["due"] for r in self.store.records() if r["state"] == "waiting"]
+        pending = [r["due"] for r in self.store.records() if r["state"] == "waiting" and r["due"] > self.clock()]
         return {"usage": self.snapshot, "enabled": enabled, "watched": len(watched),
                 "error": "thread_read_failed" if problems else None,
                 "delay": next_delay(self.clock(), min(pending) if pending else None)}
@@ -79,7 +82,9 @@ class Engine:
                 continue
             if row["state"] == "waiting" and row["turn_id"] != turn["id"]:
                 self.store.update(row["id"], "superseded")
-            elif row["state"] in ("sending", "queued", "uncertain"):
+            elif row["state"] == "waiting" and turn.get("status") in ("completed", "interrupted"):
+                self.store.update(row["id"], "superseded")
+            elif row["state"] in ("sending", "queued", "accepted", "uncertain"):
                 if turn["id"] != row["turn_id"]:
                     # Metadata proves progression, but not who sent the new user message.
                     self.store.update(row["id"], "progressed")
@@ -89,7 +94,7 @@ class Engine:
 
     def _attempt(self, row, now):
         available = self.snapshot.get("available")
-        if available is not True:
+        if available is not True and getattr(self.backend, "quota_required", True):
             reset = self.snapshot.get("reset_at")
             due = reset + 2 if reset and reset > now else now + 30
             self.store.update(row["id"], "waiting", "waiting_reset" if reset else "quota_unknown", due)
@@ -110,5 +115,5 @@ class Engine:
         if not changed:
             return
         result = self.backend.submit(row["thread_id"], MESSAGE + "\n[Auto Resume Agent: " + row["id"] + "]")
-        self.store.update(row["id"], result, "open_session" if result == "queued" else "delivery_unknown")
+        self.store.update(row["id"], result, "open_session" if result == "queued" else "" if result == "accepted" else "delivery_unknown")
         self.store.event(row["thread_id"], result)

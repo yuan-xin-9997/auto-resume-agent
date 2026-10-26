@@ -17,7 +17,9 @@ def valid_id(value):
 
 
 class Store:
-    def __init__(self, root=None):
+    def __init__(self, root=None, agent="codex", source=None):
+        self.agent = agent
+        self.source = source or str(codex_home())
         self.root = Path(root) if root else data_dir()
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.path = self.root / "state.sqlite3"
@@ -57,10 +59,11 @@ class Store:
             db.execute("INSERT OR REPLACE INTO settings VALUES (?,?)", (key, json.dumps(value)))
 
     def watch(self, thread_id):
-        if not valid_id(thread_id):
+        from .opencode import valid_session
+        if not (valid_session(thread_id) if self.agent == "opencode" else valid_id(thread_id)):
             raise ValueError("invalid_thread_id")
         with self.db() as db:
-            db.execute("INSERT OR IGNORE INTO watched VALUES (?,?,?)", (thread_id, time.time() - 60, str(codex_home())))
+            db.execute("INSERT OR IGNORE INTO watched VALUES (?,?,?)", (thread_id, time.time() - 60, self.source))
 
     def unwatch(self, thread_id):
         with self.db() as db:
@@ -69,7 +72,7 @@ class Store:
 
     def watched(self):
         with self.db() as db:
-            return [dict(r) for r in db.execute("SELECT * FROM watched WHERE home=?", (str(codex_home()),))]
+            return [dict(r) for r in db.execute("SELECT * FROM watched WHERE home=?", (self.source,))]
 
     def records(self):
         with self.db() as db:

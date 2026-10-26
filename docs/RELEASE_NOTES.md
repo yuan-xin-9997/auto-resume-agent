@@ -1,7 +1,15 @@
-# Auto Resume Agent v0.1.0
+# Auto Resume Agent v0.2.0
 
-First cross-platform prerelease: Codex quota monitoring and exact-session recovery, native Qt GUI, CLI, English/简体中文/繁體中文/日本語/한국어, durable recovery state, bounded retries and platform icons.
+Adds OpenCode support alongside Codex across GUI and CLI.
 
-Native archives include GUI and CLI for Windows x64, Linux x64, macOS Apple Silicon and Intel, with SHA-256 files. Codex CLI is an external requirement; tested integration baseline is 0.163.0.
+- Agent selector, OpenCode server URL/workspace settings, and CLI --agent opencode.
+- Exact-session recovery of known retryable API errors, respecting Retry-After and the original provider/model/agent/variant and per-message tool/system/format settings.
+- Avoids busy/native-retrying sessions, permission/question waits, child/archived sessions and staged reverts.
+- Separate state per server/workspace; ambiguous submissions are never automatically repeated.
+- Five languages updated; existing Codex state retained.
 
-Read the README and docs/TESTING.md before enabling. This release supports Codex, not all AI agents. `Queued` is not execution confirmation; keep the original session open. Ambiguous delivery is never blindly retried. Targets include Windows 10/11, Ubuntu 24/26 and macOS 27; the testing matrix distinguishes actual hardware checks from CI and forward compatibility. Binaries are unsigned/not notarized.
+OpenCode does not expose universal provider remaining quota. Its quota card correctly shows Unknown; bounded retries do not prove quota availability. HTTP acceptance does not prove execution. Basic auth uses environment variables. HTTP is restricted to loopback; remote servers require HTTPS.
+
+Verified with real OpenCode 1.19.3 on Windows 11 and an isolated local fixture model: an imported failed session resumed and completed, with no duplicate user message and no real provider quota consumed. Automated tests and native builds cover all four release architectures. See docs/TESTING.md for scope.
+
+Includes native GUI + CLI archives and SHA-256 files for Windows x64, Linux x64, macOS arm64/x64. Agent software is not bundled. Prerelease; not signed with a trusted developer certificate/notarized.

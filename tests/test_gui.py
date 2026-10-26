@@ -30,5 +30,15 @@ def test_five_languages_and_watch_controls(tmp_path):
     window.table.selectRow(0)
     window.unwatch_selected()
     assert not store.watched()
+    window.agents.setCurrentIndex(1)
+    assert window.agent == "opencode" and window.store.agent == "opencode"
+    window.rows = [{"id": "ses_gui", "name": "OpenCode fixture", "cwd": str(tmp_path)}]
+    window.render()
+    window.table.selectRow(0)
+    window.watch_selected()
+    assert window.store.watched()[0]["id"] == "ses_gui"
+    window.toggle_enabled()
+    window.agents.setCurrentIndex(0)
+    assert window.store is store and not store.get("enabled")
     window.close()
     assert all(set(v) == set(EN) for v in TRANSLATIONS.values())

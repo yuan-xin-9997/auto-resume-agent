@@ -10,7 +10,7 @@
 
 Agent 任务中途额度耗尽后，本软件检测失败轮次，查询 Codex 返回的额度窗口，在额度可用后向**同一会话 UUID**提交继续指令。不使用 `--last`，不模拟键盘向窗口输入。
 
-首版实际接入 **Codex CLI 和本地 Codex 桌面会话**。Claude Code、Gemini CLI、纯云端会话等尚未实现适配，软件名称不代表已经支持所有 Agent。
+现已支持 **Codex CLI、本地 Codex 桌面会话和 OpenCode HTTP 服务会话**。在仪表盘切换 Agent，或通过 CLI 的 `--agent opencode` 选择。Claude Code、Gemini CLI 和纯云端 Codex 会话尚未适配。
 
 ![仪表盘示例](docs/screenshots/dashboard.zh-CN.png)
 
@@ -29,7 +29,7 @@ Agent 任务中途额度耗尽后，本软件检测失败轮次，查询 Codex �
 
 ## 安装
 
-从 [Releases](https://github.com/yuan-xin-9997/auto-resume-agent/releases) 下载对应系统和处理器的压缩包。原生包自带 Python，但仍需**单独安装 Codex CLI 并登录**。实际测试的 Codex CLI 版本为 **0.163.0**；其他版本请先运行 `doctor`，旧版本可能不支持相关实验接口。
+从 [Releases](https://github.com/yuan-xin-9997/auto-resume-agent/releases) 下载对应系统和处理器的压缩包。原生包自带 Python，但仍需**单独安装并登录你使用的 Agent（Codex 或 OpenCode 服务）**。OpenCode 实测版本为 **1.19.3**。实际测试的 Codex CLI 版本为 **0.163.0**；其他版本请先运行 `doctor`，旧版本可能不支持相关实验接口。
 
 | 系统 | 包名 | 启动方式 |
 | --- | --- | --- |
@@ -59,7 +59,46 @@ auto-resume-agent gui
 sudo apt-get install libegl1 libgl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 libxcb-xinerama0
 ```
 
-## 开始使用
+## 使用 OpenCode
+
+![OpenCode 界面示例](docs/screenshots/dashboard.opencode.zh-CN.png)
+
+*示例会话，不含个人数据。*
+
+OpenCode 有官方 HTTP 会话接口，但**没有统一的供应商剩余额度查询 API**。界面明确显示“未知”，不会猜测剩余百分比。仅对明确可重试的 API 故障恢复，遵守 `Retry-After` 秒数或 HTTP 日期；无该头时采用有上限的退避，每个会话每小时最多提交五次。这是重试策略，不代表已确认额度可用。
+
+```sh
+opencode serve --hostname 127.0.0.1 --port 4096
+# 需要处理权限或提问时，可连接终端：
+opencode attach http://127.0.0.1:4096
+```
+
+也可使用已运行 TUI 的服务端口。在设置中填写服务地址和**服务端的绝对工作目录**，在仪表盘选择 **OpenCode**，监控 `ses_...` 会话并开启恢复。切换 Agent 或保存连接设置会暂停恢复，核对后再开启。一个 GUI 监控当前所选 Agent，可使用独立 CLI 进程分别监控两者，状态隔离。
+
+```sh
+auto-resume-agent --agent opencode --opencode-url http://127.0.0.1:4096 --opencode-directory /absolute/project doctor
+auto-resume-agent --agent opencode sessions
+auto-resume-agent --agent opencode usage
+auto-resume-agent --agent opencode add ses_EXACT_SESSION_ID
+auto-resume-agent --agent opencode enable
+auto-resume-agent --agent opencode watch
+auto-resume-agent --agent opencode pause
+```
+
+地址和目录会保存。CLI 不指定 `--agent opencode` 时仍默认 Codex。Basic 认证通过与服务端一致的 `OPENCODE_SERVER_PASSWORD` 和可选 `OPENCODE_SERVER_USERNAME` 环境变量提供，密码不写入数据库或 URL。HTTP 仅限本机回环地址，远程服务需 HTTPS，也可使用 SSH 隧道。请求不跟随重定向、不使用系统 HTTP 代理。
+
+仅恢复 `isRetryable: true` 的 `APIError`：HTTP 429、408/425、5xx，或无状态码的连接错误。已知结构化账单／余额拒绝、认证失败、用户取消和未知错误不会自动恢复。运行中、自身重试中、等待权限或回答、子会话、已归档会话及存在回退操作时均不会插入消息。继续时保留原供应商、模型、Agent、variant 及原消息的工具限制、system 和格式设置，不会自动批准权限。
+
+通过 `POST /session/{id}/prompt_async` 投递到精确会话。“已接受”仅表示 HTTP 接收确认，不证明已执行；新消息只证明会话进展，不证明是谁触发。模糊结果不会自动重发。只要服务仍在运行，TUI 关闭后也可继续；权限和提问仍须人工处理。
+
+每组服务地址与目录在 `opencode/` 下有独立状态，原 Codex 状态保留。请固定使用同一地址和目录，避免其他恢复工具同时管理相同会话；地址别名或独立状态目录无法协调发送。
+
+适配器在内存中读取会话状态和消息，以分类故障、保留继续设置，不持久化对话、原始错误或供应商凭据。供应商认证及模型请求由 OpenCode 处理，本适配器仅通过环境变量使用服务 Basic 认证。
+
+接口依据：[OpenCode 官方服务文档](https://docs.opencode.ai/docs/server/)。
+
+## 使用 Codex
+
 
 1. 安装 [Codex CLI](https://github.com/openai/codex)，运行 `codex login`。
 2. 打开本软件，在设置中选择语言；自动检测失败时填写 Codex 可执行文件路径。
@@ -91,7 +130,7 @@ auto-resume-agent check               # 检查一轮；已开启恢复时可能�
 
 Linux/Mac 可通过自己的服务管理器运行 `watch`。不要让另一款自动恢复工具同时管理相同会话：本软件只对共用同一状态目录的实例加锁，无法协调其他产品或独立状态目录。
 
-## 恢复规则与边界
+## Codex 恢复规则与边界
 
 - 仅处理明确选中的本地、未归档、支持来源的会话；不恢复子 Agent。
 - 需要明确的结构化错误，以及新鲜的、确认可用的额度快照。未知额度继续等待。

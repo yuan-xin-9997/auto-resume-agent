@@ -15,6 +15,8 @@ from .engine import Engine
 from .i18n import LANGUAGES, tr
 from .protocol import Codex, BackendError
 from .store import Store
+from .backends import create_backend, selected_store, configuration
+from . import __version__
 
 ASSETS = Path(__file__).parent / "assets"
 
@@ -71,28 +73,28 @@ class Worker:
         while not self.stop.is_set():
             wait = 5
             try:
-                path = self.store.get("codex_path") or None
-                if backend is None or path != configured:
+                config = configuration(self.store)
+                if backend is None or config != configured:
                     if backend:
                         backend.close()
-                    backend = Codex(path)
-                    engine = Engine(self.store, backend)
-                    configured = path
+                    backend = create_backend(self.store, config[0])
+                    engine = Engine(selected_store(self.store, config[0]), backend)
+                    configured = config
                     self.inbox.put(("threads", None))
                 while not self.inbox.empty():
                     kind, value = self.inbox.get_nowait()
                     if kind == "threads":
-                        self.outbox.put(("threads", (backend.threads(value), value is not None)))
+                        self.outbox.put((configured, "threads", (backend.threads(value), value is not None)))
                     elif kind == "refresh":
                         engine.last_usage = 0
                 result = engine.tick()
                 self.store.set("last_error", None)
                 wait = result["delay"]
-                self.outbox.put(("tick", result))
+                self.outbox.put((configured, "tick", result))
             except Exception as error:
                 code = str(error) if isinstance(error, BackendError) else "generic_error"
                 self.store.set("last_error", code)
-                self.outbox.put(("error", code))
+                self.outbox.put((configuration(self.store), "error", code))
                 if backend:
                     backend.close()
                 backend, engine = None, None
@@ -106,7 +108,9 @@ class Worker:
 class Window(QMainWindow):
     def __init__(self, store, start_worker=True):
         super().__init__()
-        self.store = store
+        self.base_store = store
+        self.agent = store.get("agent", "codex")
+        self.store = selected_store(store, self.agent)
         self.language = store.get("language", "en")
         self.translated = []
         self.rows = []
@@ -144,7 +148,7 @@ class Window(QMainWindow):
         side.addStretch()
         side.addWidget(self.label("privacy", "muted", wrap=True))
         side.addSpacing(15)
-        side.addWidget(QLabel("v0.1.0"))
+        side.addWidget(QLabel("v" + __version__))
         layout.addWidget(sidebar)
         layout.addWidget(self.pages, 1)
         self.build_dashboard()
@@ -158,11 +162,14 @@ class Window(QMainWindow):
         self.slow_timer.timeout.connect(self.render)
         self.slow_timer.start(1000)
         if start_worker:
-            self.worker = Worker(store)
+            self.worker = Worker(self.base_store)
         self.render()
 
     def text(self, key):
-        return tr(key, self.language)
+        value = tr("opencode_help" if key == "help_text" and self.agent == "opencode" else key, self.language)
+        if self.agent == "opencode" and key in ("privacy", "scope", "hint", "about", "thread"):
+            value = value.replace("Codex", "OpenCode").replace("UUID", "ID")
+        return value.replace("0.1.0", __version__)
 
     def label(self, key, style=None, wrap=False):
         label = QLabel(self.text(key))
@@ -196,6 +203,12 @@ class Window(QMainWindow):
         top.addWidget(self.badge)
         box.addLayout(top)
         box.addWidget(self.label("subtitle", "muted"))
+        self.agents = QComboBox()
+        self.agents.addItem("Codex", "codex")
+        self.agents.addItem("OpenCode", "opencode")
+        self.agents.setCurrentIndex(1 if self.agent == "opencode" else 0)
+        self.agents.currentIndexChanged.connect(self.change_agent)
+        box.addWidget(self.agents)
         controls = QHBoxLayout()
         self.toggle = QPushButton()
         self.toggle.setObjectName("primary")
@@ -260,8 +273,14 @@ class Window(QMainWindow):
         self.languages.currentIndexChanged.connect(self.change_language)
         box.addWidget(self.languages)
         box.addWidget(self.label("codex_path", "section"))
-        self.executable = QLineEdit(self.store.get("codex_path", ""))
+        self.executable = QLineEdit(self.base_store.get("codex_path", ""))
         box.addWidget(self.executable)
+        box.addWidget(self.label("opencode_url", "section"))
+        self.opencode_url = QLineEdit(self.base_store.get("opencode_url", "http://127.0.0.1:4096"))
+        box.addWidget(self.opencode_url)
+        box.addWidget(self.label("opencode_directory", "section"))
+        self.opencode_directory = QLineEdit(self.base_store.get("opencode_directory", ""))
+        box.addWidget(self.opencode_directory)
         box.addWidget(self.button("save", self.save))
         box.addWidget(self.label("confirm_close", "muted", wrap=True))
         box.addStretch()
@@ -274,15 +293,40 @@ class Window(QMainWindow):
 
     def change_language(self):
         self.language = self.languages.currentData()
-        self.store.set("language", self.language)
+        self.base_store.set("language", self.language)
         for widget, key in self.translated:
             widget.setText(self.text(key))
         self.render()
 
     def save(self):
-        self.store.set("codex_path", self.executable.text().strip())
+        from .opencode import endpoint
+        try:
+            url = endpoint(self.opencode_url.text().strip())
+        except BackendError as error:
+            QMessageBox.warning(self, self.text("error"), self.text(str(error)))
+            return
+        self.store.set("enabled", False)
+        self.base_store.set("codex_path", self.executable.text().strip())
+        self.base_store.set("opencode_url", url)
+        self.base_store.set("opencode_directory", self.opencode_directory.text().strip())
+        self.store = selected_store(self.base_store, self.agent)
+        self.store.set("enabled", False)
+        self.rows, self.cursor = [], None
         self.connection.setText(self.text("saved"))
         self.refresh()
+
+    def change_agent(self):
+        self.store.set("enabled", False)
+        self.agent = self.agents.currentData()
+        self.base_store.set("agent", self.agent)
+        self.store = selected_store(self.base_store, self.agent)
+        self.store.set("enabled", False)
+        self.rows, self.cursor = [], None
+        for widget, key in self.translated:
+            widget.setText(self.text(key))
+        self.connection.setText(self.text("unknown"))
+        self.refresh()
+        self.render()
 
     def help(self):
         QMessageBox.information(self, self.text("help"), self.text("help_text"))
@@ -321,7 +365,9 @@ class Window(QMainWindow):
         if not self.worker:
             return
         while not self.worker.outbox.empty():
-            kind, data = self.worker.outbox.get_nowait()
+            config, kind, data = self.worker.outbox.get_nowait()
+            if config != configuration(self.base_store):
+                continue
             if kind == "threads":
                 page, append = data
                 rows = page.get("data", [])
@@ -329,9 +375,9 @@ class Window(QMainWindow):
                 self.cursor = page.get("nextCursor")
             elif kind == "tick":
                 self.latest_tick = data
-                self.connection.setText(self.text(data["error"]) if data.get("error") else self.text("ready"))
+                self.connection.setText(self.text(data["error"]) if data.get("error") else self.text("ready").replace("Codex", "OpenCode" if self.agent == "opencode" else "Codex"))
             else:
-                self.connection.setText(self.text(data) if data in ("codex_missing", "another_monitor") else self.text("generic_error") + " (" + data + ")")
+                self.connection.setText(self.text(data) if data in ("codex_missing", "another_monitor") else self.text("generic_error").replace("Codex", "OpenCode" if self.agent == "opencode" else "Codex") + " (" + data + ")")
                 self.connection.setToolTip(data)
             self.render()
 
@@ -348,6 +394,7 @@ class Window(QMainWindow):
             while self.quota_layout.count():
                 item = self.quota_layout.takeAt(0)
                 if item.widget():
+                    item.widget().hide()
                     item.widget().deleteLater()
             for window in snapshot.get("windows", []) or [None]:
                 card = QFrame()
@@ -360,7 +407,8 @@ class Window(QMainWindow):
                     amount = f'{left:g}% {self.text("remaining")}'
                     reset = self.text("reset") + " · " + timestamp(window.get("reset_at"))
                 else:
-                    label, amount, reset = "Codex", self.text("unknown"), "—"
+                    label = "OpenCode" if self.agent == "opencode" else "Codex"
+                    amount, reset = self.text("unknown"), self.text("quota_not_exposed") if self.agent == "opencode" else "—"
                     left = 0
                 card_box.addWidget(QLabel(label))
                 number = QLabel(amount)
@@ -371,7 +419,9 @@ class Window(QMainWindow):
                 bar.setValue(int(left))
                 bar.setTextVisible(False)
                 card_box.addWidget(bar)
-                card_box.addWidget(QLabel(reset))
+                reset_label = QLabel(reset)
+                reset_label.setWordWrap(True)
+                card_box.addWidget(reset_label)
                 card_box.addWidget(QLabel(self.text("usage_age") + " · " + timestamp(snapshot.get("checked_at"))))
                 self.quota_layout.addWidget(card)
         watched = {r["id"] for r in self.store.watched()}

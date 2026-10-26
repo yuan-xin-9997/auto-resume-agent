@@ -10,7 +10,7 @@ Monitor your AI agent's usage limits and continue the exact interrupted session 
 
 Your agent hits a limit halfway through a task. Auto Resume Agent observes the failed turn, checks the usage windows reported by Codex, and submits a continuation to that session's exact UUID when quota becomes available. It never uses `--last` or types into an agent window.
 
-The first release supports **Codex CLI and local Codex desktop sessions**. Claude Code, Gemini CLI, cloud-only sessions and other agents are not implemented yet. The product name describes the broader project, not a claim that every agent is supported.
+Supports **Codex CLI/local desktop sessions and OpenCode HTTP server sessions**. Choose the agent in the dashboard or pass `--agent opencode` in the CLI. Claude Code, Gemini CLI and cloud-only Codex sessions are not implemented.
 
 ![Dashboard with illustrative data](docs/screenshots/dashboard.png)
 
@@ -31,7 +31,7 @@ The first release supports **Codex CLI and local Codex desktop sessions**. Claud
 
 ## Install
 
-Download the archive matching your OS and processor from [Releases](https://github.com/yuan-xin-9997/auto-resume-agent/releases). Python is included in native bundles; **Codex CLI must be installed separately and logged in**. The tested integration is Codex CLI **0.163.0**. Run `doctor` to check other versions; the app-server interface is experimental and older versions may lack the required methods.
+Download the archive matching your OS and processor from [Releases](https://github.com/yuan-xin-9997/auto-resume-agent/releases). Python is included in native bundles; **The agent you use must be installed separately and logged in** (Codex or an OpenCode server). OpenCode integration baseline: **1.19.3**. The tested integration is Codex CLI **0.163.0**. Run `doctor` to check other versions; the app-server interface is experimental and older versions may lack the required methods.
 
 | Platform | Archive | Open |
 | --- | --- | --- |
@@ -46,12 +46,12 @@ Verify the archive's SHA-256 against its adjacent `.sha256` file before extracti
 
 ```powershell
 # Windows
-Get-FileHash .\AutoResumeAgent-v0.1.0-windows-x64.zip -Algorithm SHA256
+Get-FileHash .\AutoResumeAgent-v0.2.0-windows-x64.zip -Algorithm SHA256
 ```
 ```sh
 # Ubuntu / macOS
-sha256sum AutoResumeAgent-v0.1.0-linux-x64.tar.gz
-shasum -a 256 AutoResumeAgent-v0.1.0-macos-arm64.tar.gz
+sha256sum AutoResumeAgent-v0.2.0-linux-x64.tar.gz
+shasum -a 256 AutoResumeAgent-v0.2.0-macos-arm64.tar.gz
 ```
 
 ### From source
@@ -71,7 +71,42 @@ For a headless machine, `python -m pip install .` installs the CLI without Qt. U
 sudo apt-get install libegl1 libgl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 libxcb-xinerama0
 ```
 
-## Quick start
+## OpenCode
+
+OpenCode provides an HTTP session API but **no universal remaining-provider-quota API**. Its quota card displays **Unknown**. Recovery uses explicitly retryable API errors and honors `Retry-After` seconds or HTTP dates. Without a header, bounded backoff applies. This is a retry policy, not proof of available quota. The five-submissions-per-session-per-hour cap still applies.
+
+```sh
+opencode serve --hostname 127.0.0.1 --port 4096
+# Optional terminal for permission requests/questions:
+opencode attach http://127.0.0.1:4096
+```
+
+Alternatively, use the port belonging to an existing OpenCode TUI. In Settings, enter the server URL and absolute **server-side workspace directory**. Choose **OpenCode** on the dashboard, watch `ses_...` sessions and enable recovery. Switching agents or saving connection settings pauses recovery; review the sessions before enabling it again. One GUI monitors its selected agent. Separate CLI processes can monitor both agents with isolated state.
+
+```sh
+auto-resume-agent --agent opencode --opencode-url http://127.0.0.1:4096 --opencode-directory /absolute/project doctor
+auto-resume-agent --agent opencode sessions
+auto-resume-agent --agent opencode usage
+auto-resume-agent --agent opencode add ses_EXACT_SESSION_ID
+auto-resume-agent --agent opencode enable
+auto-resume-agent --agent opencode watch
+auto-resume-agent --agent opencode pause
+```
+
+The URL/directory are saved. CLI commands still default to Codex unless `--agent opencode` is supplied. Basic auth uses `OPENCODE_SERVER_PASSWORD` and optional `OPENCODE_SERVER_USERNAME` environment variables, matching the server. Passwords are never saved in the database or URLs. HTTP is allowed on loopback only; remote servers require HTTPS, or use an SSH tunnel. Requests do not follow redirects or use system HTTP proxies.
+
+Only `APIError` records explicitly marked `isRetryable: true` qualify: HTTP 429, 408/425, 5xx, or a missing status for transport failures. Known structured billing/quota denials, auth failures, cancellations and unknown error types are excluded. Busy sessions, OpenCode's own retry loop, pending permissions/questions, children, archived sessions and staged reverts block recovery. Original provider, model, agent, variant and per-message tool/system/format settings are retained. No permissions are automatically approved.
+
+Continuation uses `POST /session/{id}/prompt_async` on the exact session. **Accepted** acknowledges receipt, not execution. A newer message means progression, not attribution. Ambiguous HTTP results are never automatically resubmitted. The TUI can be closed while the server stays running; requests for permissions or user answers still require you.
+
+Each URL + workspace has separate state under `opencode/`. Existing Codex state stays intact. Use a canonical URL/directory and do not run unrelated recovery tools on those sessions: aliases and independent state roots cannot coordinate sends.
+
+The adapter reads session status and messages in memory to classify failures and retain continuation settings. It does not persist transcripts, raw errors or provider credentials. OpenCode handles provider authentication and model requests. Server Basic authentication is the only password this adapter uses, through the environment.
+
+Integration reference: [official OpenCode server API](https://docs.opencode.ai/docs/server/).
+
+## Codex quick start
+
 
 1. Install [Codex CLI](https://github.com/openai/codex), then run `codex login`.
 2. Open Auto Resume Agent. In Settings, select a language; specify the Codex executable if auto-detection fails.
@@ -103,7 +138,7 @@ Global options go before the subcommand: `auto-resume-agent --codex /path/to/cod
 
 For persistent Linux or macOS monitoring, run `watch` under your normal service manager. Do not run another auto-resume product against the same sessions: the process lock prevents duplicates among this app's instances using the same state directory, not among unrelated tools or independent state directories.
 
-## Recovery rules
+## Codex recovery rules
 
 - Only explicitly selected, local, unarchived sessions with supported sources are considered. Subagents are excluded.
 - Recovery requires a structured, recognized Codex failure and fresh quota information confirming available exposed windows. Unknown quota waits.

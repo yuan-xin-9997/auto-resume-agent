@@ -1,5 +1,17 @@
 # Verification record
 
+## v0.2.0 — OpenCode support (2026-10-26)
+
+- Windows 11: OpenCode 1.19.3 real HTTP health/session API checks passed.
+- An isolated real OpenCode server imported a synthetic failed session. Auto Resume Agent detected the retryable failure, posted to the same session, retained the original provider/model/agent, and a local fixture provider completed the continuation. Exactly one additional user message was observed. No production provider credentials or quota were used.
+- `scripts/opencode_smoke.py --executable /path/to/opencode` reproduces this test using temporary XDG data/config roots, denied tool permissions and a loopback fixture provider.
+- 53 automated tests cover Codex regressions and OpenCode HTTP acceptance, Retry-After, preserved model/agent/variant/tool/system settings, busy/native-retry exclusion, permissions/questions, auth/billing/cancellation exclusion, child/archive/revert exclusion, separate state roots, ambiguous delivery and five-language GUI agent switching.
+- Native GUI/CLI build and startup tests run on all four release architectures. OpenCode's provider remaining quota is not exposed by its public API and is correctly shown as unknown. Tests do not prove quota availability with every third-party provider.
+- Existing v0.1.0 platform checks below remain historical evidence; new release checks are tied to the v0.2.0 workflow.
+
+## v0.1.0 historical verification
+
+
 Version: 0.1.0. Date: 2026-10-26 (Asia/Shanghai).
 
 Target compatibility is distinct from tests completed. This prerelease does not claim every target platform has passed a full interactive Codex failure-and-recovery test.

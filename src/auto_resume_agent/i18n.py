@@ -36,6 +36,24 @@ for _locale, _values in TRANSLATIONS.items():
         raise RuntimeError("Incomplete locale: " + _locale)
 TRANSLATIONS = {key: dict(zip(EN, values)) for key, values in TRANSLATIONS.items()}
 
+EXTRA = {
+    "opencode_url": ("OpenCode server URL", "OpenCode 服务地址", "OpenCode 服務位址", "OpenCode サーバー URL", "OpenCode 서버 URL"),
+    "opencode_directory": ("OpenCode workspace directory (on the server)", "OpenCode 工作目录（服务端路径）", "OpenCode 工作目錄（伺服器路徑）", "OpenCode 作業ディレクトリ（サーバー上）", "OpenCode 작업 폴더 (서버 경로)"),
+    "quota_not_exposed": ("Provider quota is not exposed; bounded retries follow known transient errors.", "供应商未提供统一额度查询；仅对明确的临时故障有限重试。", "供應商未提供統一額度查詢；僅對明確的暫時故障有限重試。", "残量 API はありません。明確な一時エラーのみ回数制限付きで再試行します。", "통합 잔여 한도 API가 없습니다. 명확한 일시적 오류만 제한적으로 재시도합니다."),
+    "accepted": ("Accepted · execution not confirmed", "已接受 · 尚未确认执行", "已接受 · 尚未確認執行", "受付済み · 実行未確認", "접수됨 · 실행 미확인"),
+    "opencode_invalid_url": ("Enter an HTTP(S) server origin without credentials, path or query.", "请输入不含凭据、路径和查询参数的 HTTP(S) 服务地址。", "請輸入不含憑證、路徑及查詢參數的 HTTP(S) 服務位址。", "認証情報・パス・クエリを含まない HTTP(S) URL を入力してください。", "인증 정보, 경로, 쿼리가 없는 HTTP(S) URL을 입력하세요."),
+    "opencode_remote_requires_https": ("Remote OpenCode servers require HTTPS; HTTP is allowed on loopback only.", "远程 OpenCode 服务需使用 HTTPS；HTTP 仅限本机回环地址。", "遠端 OpenCode 服務需使用 HTTPS；HTTP 僅限本機回環位址。", "リモートは HTTPS が必要です。HTTP はループバックのみ使用できます。", "원격 서버에는 HTTPS가 필요합니다. HTTP는 루프백에서만 허용됩니다."),
+    "opencode_help": ("Start OpenCode on a known port (opencode serve --hostname 127.0.0.1 --port 4096), or use a running TUI's server port. Set its URL and workspace directory in Settings, select OpenCode, watch sessions and enable recovery.\n\nRemaining provider quota is unknown. Only retryable API errors (429, 408/425, 5xx or transport failures) are retried. Retry-After is respected. Busy/retrying sessions, permissions and questions require waiting or user action. Accepted is not execution confirmation.",
+        "用固定端口启动 OpenCode（opencode serve --hostname 127.0.0.1 --port 4096），或使用已运行 TUI 的服务端口。在设置中填写地址和工作目录，切换到 OpenCode，选择会话并开启恢复。\n\n供应商剩余额度未知。仅重试明确可重试的 API 错误（429、408/425、5xx 或连接故障），并遵守 Retry-After。运行中、自身重试中、权限及提问等待状态不会被打断。已接受不代表已执行。",
+        "使用固定連接埠啟動 OpenCode（opencode serve --hostname 127.0.0.1 --port 4096），或使用已執行 TUI 的伺服器連接埠。在設定中填入位址與工作目錄，切換至 OpenCode，選取對話並啟用恢復。\n\n供應商剩餘額度未知。僅重試明確可重試的 API 錯誤（429、408/425、5xx 或連線故障），並遵守 Retry-After。執行中、自身重試中、權限與提問等待狀態不會被打斷。已接受不代表已執行。",
+        "OpenCode を固定ポートで起動（opencode serve --hostname 127.0.0.1 --port 4096）、または既存 TUI のポートを使用します。設定で URL と作業ディレクトリを指定し、OpenCode を選択して監視と再開を有効にします。\n\n残量は不明です。再試行可能な 429、408/425、5xx、接続エラーのみを対象とし、Retry-After を尊重します。実行中・再試行中・権限や質問の待機中は介入しません。受付は実行確認ではありません。",
+        "OpenCode를 고정 포트로 실행하거나(opencode serve --hostname 127.0.0.1 --port 4096) 기존 TUI의 서버 포트를 사용하세요. 설정에서 URL과 작업 폴더를 지정하고 OpenCode를 선택해 감시와 복구를 켜세요.\n\n잔여 한도는 알 수 없습니다. 재시도 가능한 429, 408/425, 5xx 및 연결 오류만 처리하며 Retry-After를 따릅니다. 실행 중, 자체 재시도 중, 권한 또는 질문 대기 상태에는 개입하지 않습니다. 접수는 실행 확인이 아닙니다."),
+}
+for _key, _texts in EXTRA.items():
+    EN[_key] = _texts[0]
+    for _language, _text in zip(list(LANGUAGES)[1:], _texts[1:]):
+        TRANSLATIONS[_language][_key] = _text
+
 
 def tr(key, language="en"):
     return TRANSLATIONS.get(language, EN).get(key, EN.get(key, key))

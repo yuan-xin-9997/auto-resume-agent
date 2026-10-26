@@ -45,5 +45,13 @@ with tempfile.TemporaryDirectory() as root:
         window.connection.setText(window.text("ready"))
         app.processEvents()
         window.grab().save(str(output / filename))
+    window.agents.setCurrentIndex(1)
+    window.rows = [{"id": "ses_example" + str(i), "name": r["name"], "cwd": r["cwd"]} for i, r in enumerate(rows)]
+    window.store.set("usage", {"available": None, "windows": [], "checked_at": now, "reason": "quota_not_exposed"})
+    window.store.watch("ses_example0")
+    window.render()
+    window.connection.setText(window.text("ready").replace("Codex", "OpenCode"))
+    app.processEvents()
+    window.grab().save(str(output / "dashboard.opencode.zh-CN.png"))
     window.close()
 print(output)
