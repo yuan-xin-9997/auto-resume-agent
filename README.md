@@ -121,6 +121,8 @@ No telemetry, analytics or update network client. Authentication and requests to
 
 Own SQLite state stores settings, watched UUIDs, numeric quota snapshots, classified recovery records and bounded event codes. It does not persist prompts, transcripts, raw errors, access tokens or API keys. Session labels/workspace paths are shown in memory in the GUI and printed by the `sessions` CLI command. Treat your own redirected CLI output accordingly.
 
+For local troubleshooting only, setting `ARA_DEBUG_LOG` to a file path opts into saving Codex app-server stderr there. That optional raw diagnostic file can contain private paths or error details; review it before sharing. It is off by default and is separate from the normal state database.
+
 | OS | Default state directory |
 | --- | --- |
 | Windows | `%LOCALAPPDATA%\AutoResumeAgent` |

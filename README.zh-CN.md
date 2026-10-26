@@ -109,6 +109,8 @@ Linux/Mac 可通过自己的服务管理器运行 `watch`。不要让另一款�
 
 本地 SQLite 保存设置、监控 UUID、数值额度快照、分类恢复记录和有数量上限的事件代码，不保存提示词、对话全文、原始错误、Token 或 API Key。会话名称和工作目录只在 GUI 内存中展示，也会由 `sessions` 命令打印；重定向命令输出时请自行管理这些数据。
 
+仅在本地排障时，可设置 `ARA_DEBUG_LOG` 为文件路径，主动保存 Codex app-server 的 stderr。该可选原始诊断文件可能包含私人路径和错误详情，分享前应检查；默认关闭，与正常状态数据库分开。
+
 | 系统 | 默认状态目录 |
 | --- | --- |
 | Windows | `%LOCALAPPDATA%\AutoResumeAgent` |

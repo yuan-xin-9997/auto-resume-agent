@@ -95,12 +95,17 @@ class Codex:
         self.close()
         self.responses = queue.Queue(maxsize=64)
         codex_home().mkdir(parents=True, exist_ok=True)
-        with external_spawn():
-            self.process = subprocess.Popen(
-                self.argv + ["app-server", "--stdio"], stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
-                encoding="utf-8", bufsize=1, creationflags=NO_WINDOW,
-                cwd=codex_home(), shell=False, env=external_environment())
+        debug_log = open(os.environ["ARA_DEBUG_LOG"], "ab") if os.environ.get("ARA_DEBUG_LOG") else None
+        try:
+            with external_spawn():
+                self.process = subprocess.Popen(
+                    self.argv + ["app-server", "--stdio"], stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE, stderr=debug_log or subprocess.DEVNULL, text=True,
+                    encoding="utf-8", bufsize=1, creationflags=NO_WINDOW,
+                    cwd=codex_home(), shell=False, env=external_environment())
+        finally:
+            if debug_log:
+                debug_log.close()
         self.reader = threading.Thread(target=self._read, args=(self.process, self.responses), daemon=True)
         self.reader.start()
         try:
@@ -130,8 +135,10 @@ class Codex:
                         process.stdin.flush()
                     else:
                         responses.put_nowait(value)
-        except (OSError, ValueError, queue.Full):
-            pass
+        except (OSError, ValueError, queue.Full) as error:
+            if os.environ.get("ARA_DEBUG_LOG"):
+                with open(os.environ["ARA_DEBUG_LOG"], "a", encoding="utf-8") as log:
+                    log.write("reader: " + type(error).__name__ + " errno=" + str(getattr(error, "errno", None)) + "\n")
         finally:
             try:
                 responses.put_nowait({"disconnected": True})
@@ -155,7 +162,11 @@ class Codex:
             while time.monotonic() < end:
                 result = self.responses.get(timeout=max(0.01, end - time.monotonic()))
                 if result.get("disconnected"):
-                    raise BackendError("codex_disconnected")
+                    try:
+                        status = self.process.wait(timeout=0.2)
+                    except subprocess.TimeoutExpired:
+                        status = "running"
+                    raise BackendError("codex_disconnected_" + str(status))
                 if result.get("id") != request_id:
                     continue
                 if "error" in result:

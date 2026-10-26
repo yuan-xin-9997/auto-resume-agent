@@ -21,6 +21,7 @@ ASSETS = Path(__file__).parent / "assets"
 STYLE = """
 QWidget { background: #10151e; color: #e6edf7; font-family: 'Segoe UI', 'Noto Sans', sans-serif; font-size: 13px; }
 QFrame#sidebar { background: #151c28; border-right: 1px solid #273246; }
+QFrame#sidebar QLabel { background: transparent; }
 QLabel#brand { font-size: 19px; font-weight: 700; }
 QLabel#title { font-size: 30px; font-weight: 700; }
 QLabel#muted { color: #9baac2; }
@@ -85,6 +86,7 @@ class Worker:
                     elif kind == "refresh":
                         engine.last_usage = 0
                 result = engine.tick()
+                self.store.set("last_error", None)
                 wait = result["delay"]
                 self.outbox.put(("tick", result))
             except Exception as error:
