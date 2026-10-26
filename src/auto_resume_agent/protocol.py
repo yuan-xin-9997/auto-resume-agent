@@ -6,12 +6,53 @@ import shutil
 import subprocess
 import threading
 import time
+import sys
+import contextlib
 from pathlib import Path
 
 from . import __version__
 from .paths import codex_home
 
 NO_WINDOW = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+SPAWN_LOCK = threading.Lock()
+
+
+def external_environment():
+    env = os.environ.copy()
+    bundle = getattr(sys, "_MEIPASS", None)
+    if not bundle:
+        return env
+    def outside(entry):
+        try:
+            return not Path(entry).resolve().is_relative_to(Path(bundle).resolve())
+        except (ValueError, OSError):
+            return True
+    for key in ("PATH", "DYLD_LIBRARY_PATH"):
+        if key in env:
+            env[key] = os.pathsep.join(p for p in env[key].split(os.pathsep) if p and outside(p))
+    if "LD_LIBRARY_PATH_ORIG" in env:
+        env["LD_LIBRARY_PATH"] = env["LD_LIBRARY_PATH_ORIG"]
+    else:
+        env.pop("LD_LIBRARY_PATH", None)
+    return env
+
+
+@contextlib.contextmanager
+def external_spawn():
+    # PyInstaller's DLL directory is inherited by external Node/Codex processes.
+    with SPAWN_LOCK:
+        if os.name == "nt" and getattr(sys, "frozen", False):
+            import ctypes
+            library = ctypes.windll.kernel32
+            previous = ctypes.create_unicode_buffer(32768)
+            library.GetDllDirectoryW(len(previous), previous)
+            library.SetDllDirectoryW(None)
+            try:
+                yield
+            finally:
+                library.SetDllDirectoryW(previous.value or None)
+        else:
+            yield
 
 
 class BackendError(RuntimeError):
@@ -54,11 +95,12 @@ class Codex:
         self.close()
         self.responses = queue.Queue(maxsize=64)
         codex_home().mkdir(parents=True, exist_ok=True)
-        self.process = subprocess.Popen(
-            self.argv + ["app-server", "--stdio"], stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
-            encoding="utf-8", bufsize=1, creationflags=NO_WINDOW,
-            cwd=codex_home(), shell=False)
+        with external_spawn():
+            self.process = subprocess.Popen(
+                self.argv + ["app-server", "--stdio"], stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+                encoding="utf-8", bufsize=1, creationflags=NO_WINDOW,
+                cwd=codex_home(), shell=False, env=external_environment())
         self.reader = threading.Thread(target=self._read, args=(self.process, self.responses), daemon=True)
         self.reader.start()
         try:
@@ -141,14 +183,21 @@ class Codex:
         return rows[0] if rows else None
 
     def submit(self, thread_id, message):
+        process = None
         try:
-            result = subprocess.run(self.argv + ["queue", "--thread", thread_id, "--message", message],
-                                    capture_output=True, timeout=25, encoding="utf-8", errors="replace",
+            with external_spawn():
+                process = subprocess.Popen(self.argv + ["queue", "--thread", thread_id, "--message", message],
+                                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL,
+                                    encoding="utf-8", errors="replace", env=external_environment(),
                                     creationflags=NO_WINDOW, cwd=codex_home(), shell=False)
+            process.communicate(timeout=25)
         except (subprocess.TimeoutExpired, OSError):
+            if process and process.poll() is None:
+                process.kill()
+                process.communicate()
             return "uncertain"
         # A nonzero exit can happen after the server accepted the message. Never resend blindly.
-        return "queued" if result.returncode == 0 else "uncertain"
+        return "queued" if process.returncode == 0 else "uncertain"
 
     def close(self):
         process, self.process = self.process, None

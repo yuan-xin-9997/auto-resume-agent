@@ -47,7 +47,7 @@ def main(argv=None):
         return 0
     if args.action == "status":
         print(json.dumps({"enabled": store.get("enabled", False), "watched": store.watched(),
-                          "usage": store.get("usage"), "recoveries": store.records()}, indent=2))
+                          "usage": store.get("usage"), "last_error": store.get("last_error"), "recoveries": store.records()}, indent=2))
         return 0
     backend = None
     try:

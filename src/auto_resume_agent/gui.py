@@ -89,6 +89,7 @@ class Worker:
                 self.outbox.put(("tick", result))
             except Exception as error:
                 code = str(error) if isinstance(error, BackendError) else "generic_error"
+                self.store.set("last_error", code)
                 self.outbox.put(("error", code))
                 if backend:
                     backend.close()
@@ -328,7 +329,7 @@ class Window(QMainWindow):
                 self.latest_tick = data
                 self.connection.setText(self.text(data["error"]) if data.get("error") else self.text("ready"))
             else:
-                self.connection.setText(self.text(data) if data in ("codex_missing", "another_monitor") else self.text("generic_error"))
+                self.connection.setText(self.text(data) if data in ("codex_missing", "another_monitor") else self.text("generic_error") + " (" + data + ")")
                 self.connection.setToolTip(data)
             self.render()
 

@@ -3,6 +3,18 @@ import sys
 import uuid
 
 from auto_resume_agent.protocol import Codex
+from auto_resume_agent.protocol import external_environment
+
+
+def test_frozen_child_does_not_inherit_qt_library_paths(tmp_path, monkeypatch):
+    import os
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path), raising=False)
+    monkeypatch.setenv("PATH", str(tmp_path / "PySide6") + os.pathsep + "/usr/bin")
+    monkeypatch.setenv("LD_LIBRARY_PATH", str(tmp_path))
+    monkeypatch.setenv("LD_LIBRARY_PATH_ORIG", "/system/lib")
+    result = external_environment()
+    assert result["PATH"] == "/usr/bin"
+    assert result["LD_LIBRARY_PATH"] == "/system/lib"
 
 
 def test_real_subprocess_rpc_and_exact_queue(tmp_path, monkeypatch):
