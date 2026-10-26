@@ -1,4 +1,4 @@
-"""Bounded, read-only app-server client. Authentication stays in Codex."""
+"""Read-only monitor client; the opt-in helper uses a separate, owned-thread client."""
 import json
 import os
 import queue
@@ -135,6 +135,8 @@ class Codex:
                         process.stdin.flush()
                     else:
                         responses.put_nowait(value)
+                elif isinstance(value, dict) and "method" in value:
+                    self.notification(value)
         except (OSError, ValueError, queue.Full) as error:
             if os.environ.get("ARA_DEBUG_LOG"):
                 with open(os.environ["ARA_DEBUG_LOG"], "a", encoding="utf-8") as log:
@@ -148,6 +150,9 @@ class Codex:
     def _write(self, value):
         self.process.stdin.write(json.dumps(value) + "\n")
         self.process.stdin.flush()
+
+    def notification(self, value):
+        pass
 
     def call(self, method, params=None, initialize=False):
         if method not in self.METHODS:
@@ -180,6 +185,10 @@ class Codex:
 
     def usage(self):
         return self.call("account/rateLimits/read")
+
+    def activate_window(self, on_created, can_send):
+        from .window_request import send
+        return send(self, on_created, can_send)
 
     def threads(self, cursor=None):
         return self.call("thread/list", {"limit": 100, "cursor": cursor, "sortKey": "updated_at",

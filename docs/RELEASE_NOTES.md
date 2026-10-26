@@ -1,15 +1,16 @@
-# Auto Resume Agent v0.2.0
+# Auto Resume Agent v0.3.0
 
-Adds OpenCode support alongside Codex across GUI and CLI.
+Adds an optional Codex five-hour window starter, **disabled by default**.
 
-- Agent selector, OpenCode server URL/workspace settings, and CLI --agent opencode.
-- Exact-session recovery of known retryable API errors, respecting Retry-After and the original provider/model/agent/variant and per-message tool/system/format settings.
-- Avoids busy/native-retrying sessions, permission/question waits, child/archived sessions and staged reverts.
-- Separate state per server/workspace; ambiguous submissions are never automatically repeated.
-- Five languages updated; existing Codex state retained.
+- GUI checkbox and CLI `window-keeper on|off|status`, independent of session recovery.
+- After the reported primary 300-minute reset time, even with unused quota, create a new dedicated read-only helper session and send exactly `回复 OK`.
+- Recheck all exposed quota windows; unknown availability and weekly/spending blocks wait.
+- Durable at-most-once claim per boundary, at least five hours between attempts, no catch-up burst after sleep, and no blind replay after crash/timeout.
+- Separate helper RPC client is restricted to its newly created thread and one fixed-message turn; existing user conversations are not used for this feature.
+- Five-language controls, status and bilingual documentation. Existing Codex/OpenCode recovery remains available.
 
-OpenCode does not expose universal provider remaining quota. Its quota card correctly shows Unknown; bounded retries do not prove quota availability. HTTP acceptance does not prove execution. Basic auth uses environment variables. HTTP is restricted to loopback; remote servers require HTTPS.
+This uses one normal model request and attempts to start the next usage period early. It cannot force a quota reset or guarantee a changed server-side reset time. The monitor must remain running. Turning the setting off prevents future submissions; already submitted requests cannot be recalled.
 
-Verified with real OpenCode 1.19.3 on Windows 11 and an isolated local fixture model: an imported failed session resumed and completed, with no duplicate user message and no real provider quota consumed. Automated tests and native builds cover all four release architectures. See docs/TESTING.md for scope.
+71 automated tests cover timing, safety, default-off behavior, controls and RPC delivery. Live Windows checks verified new-thread creation and prompt acceptance; a provider stream outage prevented verification of a real OK reply. The fixture verifies completion handling. See docs/TESTING.md for limits. The feature remains off after installation/upgrade unless explicitly enabled.
 
-Includes native GUI + CLI archives and SHA-256 files for Windows x64, Linux x64, macOS arm64/x64. Agent software is not bundled. Prerelease; not signed with a trusted developer certificate/notarized.
+Includes GUI + CLI and SHA-256 files for Windows x64, Linux x64, macOS arm64/x64. Codex/OpenCode are external prerequisites. Prerelease; not signed with a trusted developer certificate/notarized.

@@ -12,7 +12,7 @@ def usage(value):
     buckets = value.get("rateLimitsByLimitId")
     if not isinstance(buckets, dict) or not buckets:
         buckets = {"codex": value.get("rateLimits")}
-    blocked, unknown, explicit = [], False, False
+    blocked, unknown, explicit = [], False, value.get("ordinaryUsageAllowed") is False
     for key, bucket in buckets.items():
         if not isinstance(bucket, dict):
             unknown = True

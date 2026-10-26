@@ -37,6 +37,21 @@ for _locale, _values in TRANSLATIONS.items():
 TRANSLATIONS = {key: dict(zip(EN, values)) for key, values in TRANSLATIONS.items()}
 
 EXTRA = {
+    "keeper_toggle": ("Start each Codex 5-hour window with a new ‘回复 OK’ session (default off)", "每个 Codex 5 小时窗口新建会话发送“回复 OK”（默认关闭）", "每個 Codex 5 小時視窗建立對話傳送「回复 OK」（預設關閉）", "Codex の各 5 時間枠で新規セッションに「回复 OK」を送信（既定 OFF）", "Codex의 각 5시간 창에서 새 세션에 ‘回复 OK’ 전송 (기본 꺼짐)"),
+    "keeper_off": ("Off. No automatic window-start requests.", "已关闭，不会自动发送窗口启动请求。", "已關閉，不會自動傳送視窗啟動請求。", "OFF：枠開始の自動リクエストは送信しません。", "꺼짐: 창 시작 요청을 자동으로 보내지 않습니다."),
+    "keeper_independent": ("Independent of recovery; uses one normal request after the reported reset, even with unused quota.", "独立于会话恢复；即使额度未用完，也在服务端重置时间后消耗一次正常请求。", "獨立於對話恢復；即使額度未用完，也在伺服器重設時間後使用一次正常請求。", "再開機能とは独立。残量があってもサーバーのリセット後に通常リクエストを 1 回使用します。", "복구와 별개로 동작합니다. 잔여 한도가 있어도 서버 초기화 후 일반 요청 1회를 사용합니다."),
+    "keeper_next": ("Next boundary", "下一窗口", "下一視窗", "次の枠", "다음 창"),
+    "keeper_last": ("Last attempt", "上次尝试", "上次嘗試", "前回", "최근 시도"),
+    "keeper_completed": ("Replied OK", "已回复 OK", "已回覆 OK", "OK 応答済み", "OK 응답 완료"),
+    "keeper_accepted": ("Accepted; completion unconfirmed", "已接受，未确认完成", "已接受，未確認完成", "受付済み・完了未確認", "접수됨 · 완료 미확인"),
+    "keeper_uncertain": ("Delivery uncertain; no resend", "投递不确定，不重发", "投遞不確定，不重送", "送信不明・再送なし", "전달 불확실 · 재전송 안 함"),
+    "keeper_sending": ("Starting helper session", "正在启动专用会话", "正在啟動專用對話", "専用セッションを開始中", "전용 세션 시작 중"),
+    "keeper_failed": ("Helper turn failed; no resend", "专用轮次失败，不重发", "專用回合失敗，不重送", "専用ターン失敗・再送なし", "전용 턴 실패 · 재전송 안 함"),
+    "keeper_cancelled": ("Cancelled before submission", "发送前已取消", "傳送前已取消", "送信前にキャンセル", "전송 전 취소됨"),
+    "keeper_waiting": ("Waiting for the next boundary", "等待下一窗口", "等待下一視窗", "次の枠を待機", "다음 창 대기 중"),
+    "keeper_waiting_update": ("Waiting for an updated server window", "等待服务端更新窗口时间", "等待伺服器更新視窗時間", "サーバーの枠更新を待機", "서버 창 시간 갱신 대기 중"),
+    "keeper_waiting_quota": ("Waiting for confirmed available quota", "等待确认额度可用", "等待確認額度可用", "利用可能な残量の確認待ち", "사용 가능한 한도 확인 대기 중"),
+    "keeper_no_window": ("Waiting for a reported 300-minute primary window", "等待服务端返回 300 分钟主窗口", "等待伺服器回傳 300 分鐘主視窗", "300 分の主枠情報を待機", "300분 기본 창 정보 대기 중"),
     "opencode_url": ("OpenCode server URL", "OpenCode 服务地址", "OpenCode 服務位址", "OpenCode サーバー URL", "OpenCode 서버 URL"),
     "opencode_directory": ("OpenCode workspace directory (on the server)", "OpenCode 工作目录（服务端路径）", "OpenCode 工作目錄（伺服器路徑）", "OpenCode 作業ディレクトリ（サーバー上）", "OpenCode 작업 폴더 (서버 경로)"),
     "quota_not_exposed": ("Provider quota is not exposed; bounded retries follow known transient errors.", "供应商未提供统一额度查询；仅对明确的临时故障有限重试。", "供應商未提供統一額度查詢；僅對明確的暫時故障有限重試。", "残量 API はありません。明確な一時エラーのみ回数制限付きで再試行します。", "통합 잔여 한도 API가 없습니다. 명확한 일시적 오류만 제한적으로 재시도합니다."),

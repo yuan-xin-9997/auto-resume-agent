@@ -1,5 +1,14 @@
 # Verification record
 
+## v0.3.0 — optional Codex window starter (2026-10-26)
+
+- Default-off GUI checkbox and CLI on/off/status; independent of recovery and scoped by CODEX_HOME.
+- 71 tests include unused allowance at expiry, two-second grace, deadline refresh, a server snapshot advancing at the boundary, weekly/unknown quota blocks, unsupported window shapes, sleep/wake catch-up, five-hour spacing, duplicate-instance locking, disable/re-enable, durable crash intent, cancellation before submit and exact fixed-message/owned-thread RPC checks.
+- The RPC fixture verifies creation of a new read-only helper thread, exactly one `回复 OK` turn, and verified OK completion. The general monitor client still rejects turn/start; only the separate helper client can start its own thread's fixed turn.
+- Live Windows 11 / Codex CLI 0.163.0 checks created dedicated helper sessions and the server accepted the exact prompt. The model stream repeatedly reported responseStreamDisconnected, so a real OK reply was **not** verified; no successful quota-window shift is claimed. Timeout is recorded as uncertain and never automatically replayed. Existing user sessions were not modified.
+- A five-hour real-time soak and provider-side changes to usage-window anchoring are not proven by simulated clocks. The request follows reported metadata and cannot force account reset behavior.
+- Release CI tests/builds native Windows x64, Linux x64, macOS arm64 and macOS x64, with frozen GUI/CLI startup checks.
+
 ## v0.2.0 — OpenCode support (2026-10-26)
 
 - Windows 11: OpenCode 1.19.3 real HTTP health/session API checks passed.

@@ -33,6 +33,9 @@ class Store:
                     created REAL NOT NULL,submitted REAL,detail TEXT NOT NULL DEFAULT '');
                 CREATE TABLE IF NOT EXISTS events (
                     id INTEGER PRIMARY KEY,time REAL NOT NULL,thread_id TEXT,code TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS window_starts (
+                    home TEXT NOT NULL, reset_at REAL NOT NULL, state TEXT NOT NULL,
+                    thread_id TEXT, created REAL NOT NULL, PRIMARY KEY(home,reset_at));
             ''')
             # A claim that survived a crash may already have been delivered.
             # Reconciliation changes its label, never submits a second message.

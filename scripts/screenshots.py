@@ -45,6 +45,16 @@ with tempfile.TemporaryDirectory() as root:
         window.connection.setText(window.text("ready"))
         app.processEvents()
         window.grab().save(str(output / filename))
+    from auto_resume_agent import window_keeper
+    previous = store.get("usage")
+    store.set("usage", {**previous, "available": True, "windows": [
+        {**w, "used_percent": 23} if w["window"] == "primary" else w for w in previous["windows"]]})
+    window_keeper.set_enabled(store, True)
+    store.set(window_keeper.key(store, "due"), now+1200)
+    window.render()
+    app.processEvents()
+    window.grab().save(str(output / "dashboard.window-keeper.zh-CN.png"))
+    window_keeper.set_enabled(store, False)
     window.agents.setCurrentIndex(1)
     window.rows = [{"id": "ses_example" + str(i), "name": r["name"], "cwd": r["cwd"]} for i, r in enumerate(rows)]
     window.store.set("usage", {"available": None, "windows": [], "checked_at": now, "reason": "quota_not_exposed"})

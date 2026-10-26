@@ -18,6 +18,12 @@ def test_five_languages_and_watch_controls(tmp_path):
     tid = str(uuid.uuid4())
     window.rows = [{"id": tid, "name": "Test session", "cwd": str(tmp_path)}]
     window.render()
+    assert not window.keeper_toggle.isChecked()
+    window.keeper_toggle.setChecked(True)
+    from auto_resume_agent import window_keeper
+    assert window_keeper.enabled(store)
+    window.keeper_toggle.setChecked(False)
+    assert not window_keeper.enabled(store)
     window.table.selectRow(0)
     window.watch_selected()
     assert store.watched()[0]["id"] == tid

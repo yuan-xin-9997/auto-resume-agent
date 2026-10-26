@@ -46,12 +46,12 @@ Verify the archive's SHA-256 against its adjacent `.sha256` file before extracti
 
 ```powershell
 # Windows
-Get-FileHash .\AutoResumeAgent-v0.2.0-windows-x64.zip -Algorithm SHA256
+Get-FileHash .\AutoResumeAgent-v0.3.0-windows-x64.zip -Algorithm SHA256
 ```
 ```sh
 # Ubuntu / macOS
-sha256sum AutoResumeAgent-v0.2.0-linux-x64.tar.gz
-shasum -a 256 AutoResumeAgent-v0.2.0-macos-arm64.tar.gz
+sha256sum AutoResumeAgent-v0.3.0-linux-x64.tar.gz
+shasum -a 256 AutoResumeAgent-v0.3.0-macos-arm64.tar.gz
 ```
 
 ### From source
@@ -105,6 +105,25 @@ The adapter reads session status and messages in memory to classify failures and
 
 Integration reference: [official OpenCode server API](https://docs.opencode.ai/docs/server/).
 
+## Optional Codex five-hour window starter (default OFF)
+
+Enable the checkbox above the dashboard controls to create a **new dedicated session** and send exactly **回复 OK** after the Codex primary 300-minute window expires, even when its allowance was not fully used. It is independent of the recovery enable/pause button and does not require watched sessions. The Codex monitor must stay running; selecting OpenCode in this GUI does not run a Codex monitor.
+
+```sh
+auto-resume-agent window-keeper status  # Read-only; a new installation is off
+auto-resume-agent window-keeper on     # Save opt-in for this CODEX_HOME
+auto-resume-agent watch                # Run the monitor (recovery may remain paused)
+auto-resume-agent window-keeper off    # Stop future window-start submissions
+```
+
+The schedule uses the **reported reset time**, not five hours after app launch. If that time is already past when enabled, the first eligible check can send immediately. Before sending, the monitor rechecks quota: unknown availability, exhausted weekly/other exposed limits or account spending blocks cause it to wait. Only a known Codex primary window with duration 300 minutes is eligible. A two-second boundary grace and normal monitoring/network delays apply.
+
+Each boundary is durably claimed before creating a thread, so restart, timeout, disabling/re-enabling, or ambiguous delivery never blindly repeats it. At least five hours separate attempts; waking after multiple missed windows causes one attempt, not a burst. The next cycle requires a newly reported future reset time. Turning the checkbox off is saved immediately and checked again before creating the helper and before starting its turn; an already submitted request cannot be withdrawn by that toggle.
+
+The dedicated helper is named `Auto Resume Agent · 5h window`, uses an empty temporary working directory and read-only sandbox, and receives instructions to reply only OK without using tools. A separate app-server client can create its one helper thread, name it and start its one fixed-message turn; it cannot send turns to existing user threads and does not approve client-side requests. Existing recovery behavior stays unchanged.
+
+This consumes a **normal Codex request** using the configured model. It attempts to make the first request of the next usage period early; it **cannot force an allowance refresh, change server-side rules, buy/redeem resets, or guarantee an earlier reset time**. The UI distinguishes a verified OK response from accepted, failed or uncertain delivery. Provider/stream failures may prevent an OK response; they do not trigger another request for that boundary. The setting defaults off on installation and is scoped to the selected CODEX_HOME. OpenCode does not support this feature.
+
 ## Codex quick start
 
 
@@ -154,7 +173,7 @@ Polling deadlines are targets, not real-time guarantees: system sleep, slow Code
 
 No telemetry, analytics or update network client. Authentication and requests to OpenAI are handled by your installed Codex. Auto Resume Agent's app-server client only invokes initialization, usage and thread metadata methods; it cannot approve tools or start turns. Recovery invokes the separate official `codex queue` command.
 
-Own SQLite state stores settings, watched UUIDs, numeric quota snapshots, classified recovery records and bounded event codes. It does not persist prompts, transcripts, raw errors, access tokens or API keys. Session labels/workspace paths are shown in memory in the GUI and printed by the `sessions` CLI command. Treat your own redirected CLI output accordingly.
+Own SQLite state stores settings, watched UUIDs, numeric quota snapshots, classified recovery records, optional window-start claims/helper UUIDs, and bounded event codes. It does not persist prompts, transcripts, raw errors, access tokens or API keys. Session labels/workspace paths are shown in memory in the GUI and printed by the `sessions` CLI command. Treat your own redirected CLI output accordingly.
 
 For local troubleshooting only, setting `ARA_DEBUG_LOG` to a file path opts into saving Codex app-server stderr there. That optional raw diagnostic file can contain private paths or error details; review it before sharing. It is off by default and is separate from the normal state database.
 

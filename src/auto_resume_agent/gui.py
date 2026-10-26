@@ -9,7 +9,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QIcon, QColor
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QComboBox, QLineEdit, QTableWidget, QTableWidgetItem,
-    QHeaderView, QAbstractItemView, QStackedWidget, QFrame, QProgressBar, QMessageBox)
+    QHeaderView, QAbstractItemView, QStackedWidget, QFrame, QProgressBar, QMessageBox, QCheckBox)
 
 from .engine import Engine
 from .i18n import LANGUAGES, tr
@@ -17,6 +17,7 @@ from .protocol import Codex, BackendError
 from .store import Store
 from .backends import create_backend, selected_store, configuration
 from . import __version__
+from . import window_keeper
 
 ASSETS = Path(__file__).parent / "assets"
 
@@ -209,6 +210,14 @@ class Window(QMainWindow):
         self.agents.setCurrentIndex(1 if self.agent == "opencode" else 0)
         self.agents.currentIndexChanged.connect(self.change_agent)
         box.addWidget(self.agents)
+        self.keeper_toggle = QCheckBox(self.text("keeper_toggle"))
+        self.translated.append((self.keeper_toggle, "keeper_toggle"))
+        self.keeper_toggle.toggled.connect(self.toggle_keeper)
+        box.addWidget(self.keeper_toggle)
+        self.keeper_status = QLabel()
+        self.keeper_status.setObjectName("muted")
+        self.keeper_status.setWordWrap(True)
+        box.addWidget(self.keeper_status)
         controls = QHBoxLayout()
         self.toggle = QPushButton()
         self.toggle.setObjectName("primary")
@@ -361,6 +370,14 @@ class Window(QMainWindow):
             self.worker.request("refresh")
         self.render()
 
+    def toggle_keeper(self, value):
+        if self.agent != "codex":
+            return
+        window_keeper.set_enabled(self.base_store, value)
+        if self.worker:
+            self.worker.request("refresh")
+        self.render()
+
     def poll(self):
         if not self.worker:
             return
@@ -386,6 +403,25 @@ class Window(QMainWindow):
         self.badge.setText(self.text("monitoring" if enabled else "paused"))
         self.toggle.setText(self.text("pause" if enabled else "start"))
         self.more.setEnabled(bool(self.cursor))
+        keeper = window_keeper.status(self.base_store)
+        self.keeper_toggle.setVisible(self.agent == "codex")
+        self.keeper_status.setVisible(self.agent == "codex")
+        self.keeper_toggle.blockSignals(True)
+        self.keeper_toggle.setChecked(keeper["enabled"])
+        self.keeper_toggle.blockSignals(False)
+        if keeper["enabled"]:
+            detail = self.text("keeper_independent")
+            current = self.latest_tick.get("window_keeper") or {}
+            reason = current.get("reason")
+            if reason in ("keeper_waiting_update", "keeper_waiting_quota", "keeper_no_window"):
+                detail += " · " + self.text(reason)
+            elif keeper.get("next_at"):
+                detail += " · " + self.text("keeper_next") + " " + timestamp(keeper["next_at"])
+            if keeper.get("last_attempt"):
+                detail += " · " + self.text("keeper_last") + " " + self.text("keeper_" + keeper["last_attempt"]["state"])
+            self.keeper_status.setText(detail)
+        else:
+            self.keeper_status.setText(self.text("keeper_off"))
         snapshot = self.store.get("usage", {"windows": []})
         # Rebuild only when quota values or locale change, avoiding focus churn.
         quota_key = (str(snapshot), self.language)

@@ -5,6 +5,7 @@ from .model import usage, category, delay, next_delay, numeric
 from .store import engine_lock, valid_id
 from .protocol import BackendError
 from .backends import snapshot
+from . import window_keeper
 
 MESSAGE = "Continue the unfinished work from this interruption. Respect all existing instructions and stop if user input or approval is required."
 
@@ -26,8 +27,11 @@ class Engine:
         enabled = self.store.get("enabled", False)
         records = self.store.records()
         due = min((r["due"] for r in records if r["state"] == "waiting"), default=None)
+        keeper = window_keeper.status(self.store) if self.store.agent == "codex" else None
+        keeper_due = keeper.get("next_at") if keeper and keeper["enabled"] else None
         # Re-query when a deadline arrives, including the first tick after system wake.
-        if now - self.last_usage >= 30 or (due is not None and due <= now):
+        if (now - self.last_usage >= 30 or (due is not None and due <= now)
+                or (numeric(keeper_due) and now >= keeper_due+2 and self.last_usage < keeper_due+2)):
             self.snapshot = snapshot(self.backend)
             self.last_usage = now
             self.store.set("usage", {**self.snapshot, "checked_at": now})
@@ -72,7 +76,12 @@ class Engine:
             except (BackendError, KeyError, TypeError, ValueError):
                 problems.append(tid)
         pending = [r["due"] for r in self.store.records() if r["state"] == "waiting" and r["due"] > self.clock()]
+        if keeper is not None:
+            keeper = window_keeper.tick(self.store, self.backend, self.snapshot, self.clock())
+            if keeper["enabled"] and numeric(keeper.get("next_at")) and keeper["next_at"] > self.clock():
+                pending.append(keeper["next_at"])
         return {"usage": self.snapshot, "enabled": enabled, "watched": len(watched),
+                "window_keeper": keeper,
                 "error": "thread_read_failed" if problems else None,
                 "delay": next_delay(self.clock(), min(pending) if pending else None)}
 

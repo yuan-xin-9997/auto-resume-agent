@@ -10,6 +10,7 @@ from .model import usage
 from .protocol import Codex, BackendError
 from .store import Store
 from .backends import create_backend, selected_store, snapshot
+from . import window_keeper
 
 
 def main(argv=None):
@@ -25,6 +26,8 @@ def main(argv=None):
         sub.add_parser(name)
     for name in ("add", "remove", "cancel"):
         sub.add_parser(name).add_argument("id")
+    sub.add_parser("window-keeper", help="Codex five-hour window first request (default off)").add_argument(
+        "mode", choices=("on", "off", "status"), nargs="?", default="status")
     args = parser.parse_args(argv)
     if args.opencode_url is not None:
         from .opencode import endpoint
@@ -49,6 +52,13 @@ def main(argv=None):
         store = selected_store(base, agent)
     except BackendError as error:
         parser.error(str(error))
+    if args.action == "window-keeper":
+        if agent != "codex":
+            parser.error("window-keeper is available for Codex only")
+        if args.mode != "status":
+            window_keeper.set_enabled(store, args.mode == "on")
+        print(json.dumps(window_keeper.status(store), indent=2))
+        return 0
     if args.action in ("enable", "pause"):
         store.set("enabled", args.action == "enable")
         print(json.dumps({"enabled": store.get("enabled")}))
@@ -68,7 +78,8 @@ def main(argv=None):
         return 0
     if args.action == "status":
         print(json.dumps({"enabled": store.get("enabled", False), "watched": store.watched(),
-                          "usage": store.get("usage"), "last_error": store.get("last_error"), "recoveries": store.records()}, indent=2))
+                          "usage": store.get("usage"), "last_error": store.get("last_error"), "recoveries": store.records(),
+                          "window_keeper": window_keeper.status(store) if agent == "codex" else None}, indent=2))
         return 0
     backend = None
     try:

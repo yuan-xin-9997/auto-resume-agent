@@ -181,6 +181,9 @@ def test_credits_and_multiple_buckets():
     assert usage(raw)["available"] is False
     assert usage(raw)["reset_at"] is None
     assert usage({"rateLimitsByLimitId": {"codex": quota()["rateLimits"], "premium": None}})["available"] is None
+    raw = quota()
+    raw["ordinaryUsageAllowed"] = False
+    assert usage(raw)["available"] is False
 
 
 def test_nested_http_errors():
