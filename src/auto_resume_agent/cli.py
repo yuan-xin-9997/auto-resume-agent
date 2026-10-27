@@ -29,6 +29,8 @@ def main(argv=None):
         sub.add_parser(name).add_argument("id")
     sub.add_parser("window-keeper", help="Codex five-hour window first request (default off)").add_argument(
         "mode", choices=("on", "off", "status"), nargs="?", default="status")
+    sub.add_parser("auto-watch", help="Discover quota-exhausted Codex sessions (default on)").add_argument(
+        "mode", choices=("on", "off", "status"), nargs="?", default="status")
     args = parser.parse_args(argv)
     if args.action == "install":
         from .install import install
@@ -67,6 +69,13 @@ def main(argv=None):
         store = selected_store(base, agent)
     except BackendError as error:
         parser.error(str(error))
+    if args.action == "auto-watch":
+        if agent != "codex":
+            parser.error("auto-watch is available for Codex only")
+        if args.mode != "status":
+            base.set("auto_watch_quota", args.mode == "on")
+        print(json.dumps({"enabled": base.get("auto_watch_quota", True)}))
+        return 0
     if args.action == "window-keeper":
         if agent != "codex":
             parser.error("window-keeper is available for Codex only")
@@ -93,6 +102,7 @@ def main(argv=None):
         return 0
     if args.action == "status":
         print(json.dumps({"enabled": store.get("enabled", False), "watched": store.watched(),
+                          "auto_watch_quota": base.get("auto_watch_quota", True) if agent == "codex" else None,
                           "usage": store.get("usage"), "last_error": store.get("last_error"), "recoveries": store.records(),
                           "window_keeper": window_keeper.status(store) if agent == "codex" else None}, indent=2))
         return 0

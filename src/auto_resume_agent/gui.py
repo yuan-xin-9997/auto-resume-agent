@@ -172,6 +172,8 @@ class Window(QMainWindow):
 
     def text(self, key):
         translated_key = {"help_text": "opencode_help", "hint": "opencode_hint"}.get(key, key) if self.agent == "opencode" else key
+        if key == "hint" and self.agent == "codex" and self.base_store.get("auto_watch_quota", True):
+            translated_key = "auto_watch_hint"
         value = tr(translated_key, self.language)
         if self.agent == "opencode" and key in ("privacy", "scope", "hint", "about", "thread"):
             value = value.replace("Codex", "OpenCode").replace("UUID", "ID")
@@ -241,7 +243,8 @@ class Window(QMainWindow):
         self.connection.setWordWrap(True)
         box.addWidget(self.connection)
         box.addWidget(self.label("sessions", "section"))
-        box.addWidget(self.label("hint", "muted", wrap=True))
+        self.session_hint = self.label("hint", "muted", wrap=True)
+        box.addWidget(self.session_hint)
         buttons = QHBoxLayout()
         self.select_all = QCheckBox(self.text("select_all"))
         self.translated.append((self.select_all, "select_all"))
@@ -298,6 +301,11 @@ class Window(QMainWindow):
         self.languages.setCurrentIndex(max(0, self.languages.findData(self.language)))
         self.languages.currentIndexChanged.connect(self.change_language)
         box.addWidget(self.languages)
+        self.auto_watch = QCheckBox(self.text("auto_watch_toggle"))
+        self.translated.append((self.auto_watch, "auto_watch_toggle"))
+        self.auto_watch.setChecked(self.base_store.get("auto_watch_quota", True))
+        self.auto_watch.toggled.connect(self.toggle_auto_watch)
+        box.addWidget(self.auto_watch)
         box.addWidget(self.label("codex_path", "section"))
         self.executable = QLineEdit(self.base_store.get("codex_path", ""))
         box.addWidget(self.executable)
@@ -325,6 +333,11 @@ class Window(QMainWindow):
         self.base_store.set("language", self.language)
         for widget, key in self.translated:
             widget.setText(self.text(key))
+        self.render()
+
+    def toggle_auto_watch(self, checked):
+        self.base_store.set("auto_watch_quota", checked)
+        self.refresh()
         self.render()
 
     def save(self):
@@ -447,6 +460,7 @@ class Window(QMainWindow):
             self.render()
 
     def render(self):
+        self.session_hint.setText(self.text("hint"))
         enabled = self.store.get("enabled", False)
         self.badge.setText(self.text("monitoring" if enabled else "paused"))
         self.toggle.setText(self.text("pause" if enabled else "start"))

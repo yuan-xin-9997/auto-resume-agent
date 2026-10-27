@@ -6,6 +6,7 @@ from .store import engine_lock, valid_id
 from .protocol import BackendError
 from .backends import snapshot
 from . import window_keeper
+from .discovery import QuotaDiscovery
 
 MESSAGE = "Continue the unfinished work from this interruption. Respect all existing instructions and stop if user input or approval is required."
 
@@ -15,6 +16,7 @@ class Engine:
         self.store, self.backend, self.clock = store, backend, clock
         self.snapshot = {"available": None, "windows": [], "reset_at": None}
         self.last_usage = 0
+        self.discovery = QuotaDiscovery()
 
     def tick(self):
         with engine_lock(self.store.root) as owned:
@@ -35,6 +37,11 @@ class Engine:
             self.snapshot = snapshot(self.backend)
             self.last_usage = now
             self.store.set("usage", {**self.snapshot, "checked_at": now})
+        discovery_error = False
+        try:
+            self.discovery.scan(self.store, self.backend, now)
+        except (BackendError, KeyError, TypeError, ValueError):
+            discovery_error = True
         watched = self.store.watched()
         problems = []
         for watch in watched:
@@ -84,7 +91,7 @@ class Engine:
                 pending.append(keeper["next_at"])
         return {"usage": self.snapshot, "enabled": enabled, "watched": len(watched),
                 "window_keeper": keeper,
-                "error": "thread_read_failed" if problems else None,
+                "error": "thread_read_failed" if problems or discovery_error else None,
                 "delay": next_delay(self.clock(), min(pending) if pending else None)}
 
     def _reconcile(self, tid, turn, records):

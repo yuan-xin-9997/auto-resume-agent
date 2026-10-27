@@ -1,9 +1,10 @@
-# Auto Resume Agent v0.4.4
+# Auto Resume Agent v0.5.0
 
-Fix watched sessions remaining idle after quota returns: explicitly watching a session now includes its latest eligible failure even when monitoring started more than one minute after the interruption. The previous one-minute cutoff silently skipped these failures.
+Automatically watch unfinished Codex sessions whose latest turn failed from quota exhaustion, enabled by default. GUI and CLI use paginated, bounded discovery with recent-session refreshes. Completed/cancelled turns, archives, subagents and five-hour helper sessions are excluded.
 
-Do not label an interrupted queue-placeholder turn as session progression. Queued delivery still requires the original Codex session to be loaded; queue acceptance alone is not confirmed execution. Cancelled/claimed recoveries remain protected against replay, and only explicitly watched sessions are considered.
+- Settings toggle and CLI auto-watch on/off/status; discovery does not enable recovery or change five-hour helper opt-ins.
+- Manual unwatch exclusions persist across restarts; manual Watch removes an exclusion. Legacy cancelled/unwatched sessions remain excluded on upgrade.
+- Existing quota checks, exact UUID delivery, durable no-replay claims and retry budgets remain active. A discovery listing failure does not block existing watched-session recovery.
+- Five-language controls and guidance. OpenCode remains manually selected because it has no equivalent structured Codex quota-exhaustion signal.
 
-85 tests pass, including old latest failures, cancelled recovery preservation and queue-placeholder handling. The preceding v0.4.3 five-hour helper was also observed at a real server boundary: automatically started about 12 seconds after expiry, sent 回复 OK, received OK, and the reported reset advanced five hours.
-
-Windows installation preserves existing configuration and records. Native GUI/CLI bundles with SHA-256 files are included for Windows x64, Linux x64 and macOS arm64/x64. Prerelease; unsigned and not notarized.
+99 tests cover discovery defaults and filters, paging/batching, changed-session priority, pause behavior, opt-outs, legacy migration, CLI controls and GUI localization. Includes native GUI/CLI bundles and SHA-256 checksums for Windows x64, Linux x64 and macOS arm64/x64. Prerelease; unsigned and not notarized.

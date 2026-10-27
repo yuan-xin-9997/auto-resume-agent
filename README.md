@@ -22,7 +22,7 @@ Supports **Codex CLI/local desktop sessions and OpenCode HTTP server sessions**.
 | Recovery | Known quota limits, rate limits, temporary connection/stream/server failures |
 | Timing | Session checks every 5 seconds; quota every 30 seconds and at due deadlines |
 | Sleep/wake | Wall-clock deadlines are re-evaluated on the next scheduled check after wake |
-| Identity | Explicitly watched UUIDs only; no automatic recovery of every historical failure |
+| Identity | Default discovery of latest Codex quota failures; manual exclusions and per-turn durable claims |
 | Delivery | Durable claim before submission; a timeout/crash never triggers blind resending |
 | Safety | Latest-turn check, user cancellation excluded, unknown errors excluded, hourly budget |
 | Languages | English · 简体中文 · 繁體中文 · 日本語 · 한국어 |
@@ -46,12 +46,12 @@ Verify the archive's SHA-256 against its adjacent `.sha256` file before extracti
 
 ```powershell
 # Windows
-Get-FileHash .\AutoResumeAgent-v0.4.4-windows-x64.zip -Algorithm SHA256
+Get-FileHash .\AutoResumeAgent-v0.5.0-windows-x64.zip -Algorithm SHA256
 ```
 ```sh
 # Ubuntu / macOS
-sha256sum AutoResumeAgent-v0.4.4-linux-x64.tar.gz
-shasum -a 256 AutoResumeAgent-v0.4.4-macos-arm64.tar.gz
+sha256sum AutoResumeAgent-v0.5.0-linux-x64.tar.gz
+shasum -a 256 AutoResumeAgent-v0.5.0-macos-arm64.tar.gz
 ```
 
 Windows installs to `%LOCALAPPDATA%/Programs/AutoResumeAgent`. Run `Install.cmd` from each new release to update the same location and shortcuts; settings and monitored sessions stay in `%LOCALAPPDATA%/AutoResumeAgent`. `Launch.cmd` remains available for portable use.
@@ -61,6 +61,12 @@ Tick session checkboxes to choose batch targets, or use **Select all**. Then cli
 [Local deployment workflow](docs/LOCAL_UPDATES.md)
 
 If the Codex helper shows stream disconnections, configure **Codex HTTP(S) proxy** in Settings (an origin with an explicit port, without credentials), or use `--codex-proxy http://127.0.0.1:7890`. Use your own proxy address; the app does not assume a port. Blank inherits the process environment. The configured proxy applies only to external Codex processes, including the separate window helper.
+
+### Default quota-session monitoring
+
+Unfinished Codex sessions whose **latest turn failed with a structured usage-limit error** are automatically added to monitoring by default. Discovery runs in the GUI worker and CLI `watch`/`check`, using paginated session lists and bounded batches, so recent sessions are prioritized without blocking on the entire history. Recovery still follows the existing enable/pause switch and quota checks. Completed, user-interrupted, archived, subagent and five-hour helper sessions are excluded.
+
+Unwatching a session persists an exclusion; automatic discovery will not add it back. Manually watching it removes that exclusion. Legacy cancelled/unwatched sessions retain their exclusion on upgrade. Disable **Automatically watch quota-exhausted Codex sessions** in Settings, or run `auto-resume-agent auto-watch off`; `on` and `status` are also available. Disabling discovery retains existing watches. OpenCode does not expose the same structured Codex quota error and is still watched manually.
 
 ### From source
 
@@ -141,7 +147,7 @@ This consumes a **normal Codex request** using the configured model. It attempts
 4. Click **Enable recovery** and leave the monitor running. Keep the original Codex sessions open.
 5. See the dashboard and Activity page for waiting, queued, uncertain or progressed records.
 
-Recovery starts in observe-only mode on a new installation. Watching a session includes its latest retryable failure, even if it occurred more than a minute before monitoring began, and future failures. Only the explicitly watched session's latest turn is inspected; cancelled or already-claimed recoveries are not replayed. Closing the GUI stops its monitor; it does not install an invisible startup service. The saved enable/pause setting is retained for the next launch.
+Recovery starts in observe-only mode on a new installation. Watching a session includes its latest retryable failure, even if it occurred more than a minute before monitoring began, and future failures. Only the monitored session's latest turn is inspected; cancelled or already-claimed recoveries are not replayed. Closing the GUI stops its monitor; it does not install an invisible startup service. The saved enable/pause setting is retained for the next launch.
 
 ### Command line
 

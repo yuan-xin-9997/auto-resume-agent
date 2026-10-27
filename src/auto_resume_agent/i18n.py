@@ -37,6 +37,9 @@ for _locale, _values in TRANSLATIONS.items():
 TRANSLATIONS = {key: dict(zip(EN, values)) for key, values in TRANSLATIONS.items()}
 
 EXTRA = {
+    "auto_watch_hint": ("Quota-exhausted Codex sessions are watched automatically; select other sessions manually. Enable recovery and keep original sessions open.", "额度耗尽未完成的 Codex 会话会自动加入监控；其他会话可手动选择。请开启自动恢复并保持原会话打开。", "額度耗盡未完成的 Codex 對話會自動加入監控；其他對話可手動選取。請啟用自動恢復並保持原對話開啟。", "残量不足の Codex セッションは自動監視されます。他は手動選択できます。再開を有効にし、元のセッションを開いてください。", "한도 소진 Codex 세션은 자동 감시됩니다. 다른 세션은 직접 선택하세요. 복구를 켜고 원래 세션을 열어 두세요."),
+    "auto_watch_toggle": ("Automatically watch quota-exhausted Codex sessions (default on)", "自动监控因额度耗尽未完成的 Codex 会话（默认开启）", "自動監控因額度耗盡未完成的 Codex 對話（預設開啟）", "残量不足で未完了の Codex セッションを自動監視（既定 ON）", "한도 소진으로 중단된 Codex 세션 자동 감시 (기본 켜짐)"),
+    "auto_watched": ("Automatically watched after quota exhaustion", "额度耗尽，已自动加入监控", "額度耗盡，已自動加入監控", "残量不足のため自動監視に追加", "한도 소진으로 자동 감시에 추가됨"),
     "codex_proxy": ("Codex HTTP(S) proxy (optional; e.g. http://127.0.0.1:7890)", "Codex HTTP(S) 代理（可选，如 http://127.0.0.1:7890）", "Codex HTTP(S) 代理（選填，如 http://127.0.0.1:7890）", "Codex HTTP(S) プロキシ（任意、例 http://127.0.0.1:7890）", "Codex HTTP(S) 프록시 (선택, 예: http://127.0.0.1:7890)"),
     "codex_invalid_proxy": ("Enter an HTTP(S) proxy origin with a port, without credentials, path or query.", "请输入带端口的 HTTP(S) 代理地址，不含凭据、路径和查询参数。", "請輸入含連接埠的 HTTP(S) 代理位址，不含憑證、路徑及查詢參數。", "ポート付きの HTTP(S) URL を入力してください。認証情報・パス・クエリは含めないでください。", "포트가 있는 HTTP(S) 주소를 입력하세요. 인증 정보, 경로, 쿼리는 제외하세요."),
     "five_hours": ("5 hours", "5 小时", "5 小時", "5時間", "5시간"),

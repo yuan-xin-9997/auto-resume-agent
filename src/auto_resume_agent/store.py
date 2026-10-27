@@ -27,6 +27,7 @@ class Store:
             db.executescript('''
                 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY,value TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS watched (id TEXT PRIMARY KEY,armed REAL NOT NULL, home TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS watch_exclusions (id TEXT NOT NULL,home TEXT NOT NULL,PRIMARY KEY(id,home));
                 CREATE TABLE IF NOT EXISTS recoveries (
                     id TEXT PRIMARY KEY,thread_id TEXT NOT NULL,turn_id TEXT NOT NULL,
                     kind TEXT NOT NULL,state TEXT NOT NULL,due REAL NOT NULL,
@@ -37,6 +38,9 @@ class Store:
                     home TEXT NOT NULL, reset_at REAL NOT NULL, state TEXT NOT NULL,
                     thread_id TEXT, created REAL NOT NULL, PRIMARY KEY(home,reset_at));
             ''')
+            # Preserve legacy manual cancellations when default discovery is introduced.
+            db.execute("INSERT OR IGNORE INTO watch_exclusions SELECT DISTINCT thread_id,? FROM recoveries "
+                       "WHERE state='cancelled' AND thread_id NOT IN (SELECT id FROM watched)", (self.source,))
             # A claim that survived a crash may already have been delivered.
             # Reconciliation changes its label, never submits a second message.
         if os.name != "nt":
@@ -61,15 +65,24 @@ class Store:
         with self.db() as db:
             db.execute("INSERT OR REPLACE INTO settings VALUES (?,?)", (key, json.dumps(value)))
 
-    def watch(self, thread_id):
+    def watch(self, thread_id, automatic=False):
         from .opencode import valid_session
         if not (valid_session(thread_id) if self.agent == "opencode" else valid_id(thread_id)):
             raise ValueError("invalid_thread_id")
         with self.db() as db:
-            db.execute("INSERT OR IGNORE INTO watched VALUES (?,?,?)", (thread_id, time.time() - 60, self.source))
+            flag = db.execute("SELECT value FROM settings WHERE key='auto_watch_quota'").fetchone() if automatic else None
+            if automatic and flag and flag[0] != "true":
+                return False
+            if automatic and db.execute("SELECT 1 FROM watch_exclusions WHERE id=? AND home=?", (thread_id, self.source)).fetchone():
+                return False
+            changed = db.execute("INSERT OR IGNORE INTO watched VALUES (?,?,?)", (thread_id, time.time() - 60, self.source)).rowcount
+            if not automatic:
+                db.execute("DELETE FROM watch_exclusions WHERE id=? AND home=?", (thread_id, self.source))
+            return bool(changed)
 
     def unwatch(self, thread_id):
         with self.db() as db:
+            db.execute("INSERT OR IGNORE INTO watch_exclusions VALUES (?,?)", (thread_id, self.source))
             db.execute("DELETE FROM watched WHERE id=?", (thread_id,))
             db.execute("UPDATE recoveries SET state='cancelled' WHERE thread_id=? AND state='waiting'", (thread_id,))
 

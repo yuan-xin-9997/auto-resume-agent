@@ -16,6 +16,11 @@ def test_five_languages_and_watch_controls(tmp_path):
     app.setStyleSheet(STYLE)
     store = Store(tmp_path)
     window = Window(store, start_worker=False)
+    assert window.auto_watch.isChecked()
+    window.auto_watch.setChecked(False)
+    assert store.get("auto_watch_quota") is False
+    window.auto_watch.setChecked(True)
+    assert store.get("auto_watch_quota") is True
     tid = str(uuid.uuid4())
     window.rows = [{"id": tid, "name": "Test session", "cwd": str(tmp_path)}]
     window.render()

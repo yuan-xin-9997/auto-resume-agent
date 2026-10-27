@@ -86,3 +86,9 @@ Windows release installation uses a fixed per-user directory and preserves the s
 Live investigation found a usage-limit failure approximately 139 seconds before the user added monitoring; the prior 60-second eligibility cutoff excluded it. The corrected engine detected that exact latest failure and queued one continuation to the original UUID. Execution and task completion must be checked separately from queue acceptance.
 
 The real five-hour boundary at 2026-10-27 18:17:38 +08:00 was observed without manual triggering. A durable helper claim was created at 18:17:49.945, thread/read verified the fixed user prompt 回复 OK and an assistant OK in a completed turn, and the next reported reset became 23:17:58. The one-time observation automation was deleted after verification.
+
+## v0.5.0 — default quota-session discovery
+
+99 tests cover default-on Codex discovery while recovery remains paused, automatic watch followed by quota-available recovery exactly once, latest-turn status/error filters, archived/subagent/helper exclusions, bounded batches and pagination, prioritizing updated recent sessions, persistent manual opt-outs and legacy cancelled-session migration, CLI control and five-language GUI control. Discovery failure is isolated from existing monitored-session recovery. OpenCode discovery is deliberately not inferred from generic API failures.
+
+Automatic watching does not prove execution: Codex queue acceptance still depends on a loaded original session, and provider/network errors remain possible. The app still respects recovery pause and durable claims, and does not send to cancelled or unrelated historical turns.
