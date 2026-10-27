@@ -1,9 +1,9 @@
-# Auto Resume Agent v0.4.2
+# Auto Resume Agent v0.4.3
 
-Fix the session status after watching a previously cancelled session again. An old cancelled recovery no longer hides the current active watch: the row immediately displays Watching (监控中) and stays correct after refresh.
+Fix Codex five-hour helper connectivity: an explicit HTTP(S) proxy can now be configured in Settings or with --codex-proxy. It is inherited by both the monitor and its separate owned-thread helper without changing global environment or Codex configuration. Invalid URLs and embedded credentials are rejected; blank inherits the process environment.
 
-Historical cancellation records remain intact; watching again does not reset delivery claims or replay cancelled requests. Applies to both Codex and OpenCode session lists.
+The helper completion deadline is extended from 45 to 150 seconds so a slow stream/reconnect is not interrupted prematurely. Existing durable claims and no-blind-replay behavior remain intact. Existing failed/uncertain windows are not resent.
 
-75 automated tests include the watch → unwatch → cancelled → watch-again sequence, refreshed status, and unchanged cancellation history. Native GUI/CLI bundles and SHA-256 files are provided for Windows x64, Linux x64 and macOS arm64/x64.
+82 automated tests pass, including proxy validation, child environment isolation and propagation to the helper. Live Windows investigation verified a newly created helper replying exactly OK through the configured local proxy. Overnight missed-boundary investigation also confirmed system sleep; the monitor cannot run while the computer is asleep or off.
 
-Windows Install.cmd updates the stable per-user installation while preserving settings, watched sessions, recovery history and feature opt-ins. Prerelease; unsigned and not notarized. Existing provider and recovery limitations remain documented in docs/TESTING.md.
+Includes native GUI/CLI bundles and SHA-256 checksums for Windows x64, Linux x64 and macOS arm64/x64. Prerelease; unsigned and not notarized.

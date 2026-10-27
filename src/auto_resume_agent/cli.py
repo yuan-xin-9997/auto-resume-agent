@@ -17,6 +17,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog="auto-resume-agent", description="Codex and OpenCode session recovery")
     parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument("--codex", help="Path to Codex executable")
+    parser.add_argument("--codex-proxy", help="HTTP(S) proxy origin with explicit port; empty clears it")
     parser.add_argument("--home", help="Auto Resume Agent state directory")
     parser.add_argument("--agent", choices=("codex", "opencode"), default=None)
     parser.add_argument("--opencode-url", help="OpenCode HTTP server URL (saved)")
@@ -47,6 +48,12 @@ def main(argv=None):
     store = base
     if args.codex:
         store.set("codex_path", args.codex)
+    if args.codex_proxy is not None:
+        from .protocol import proxy_url
+        try:
+            store.set("codex_proxy", proxy_url(args.codex_proxy) or "")
+        except BackendError as error:
+            parser.error(str(error))
     for option in ("opencode_url", "opencode_directory"):
         if getattr(args, option) is not None:
             base.set(option, getattr(args, option))

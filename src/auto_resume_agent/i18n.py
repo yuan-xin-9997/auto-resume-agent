@@ -37,6 +37,8 @@ for _locale, _values in TRANSLATIONS.items():
 TRANSLATIONS = {key: dict(zip(EN, values)) for key, values in TRANSLATIONS.items()}
 
 EXTRA = {
+    "codex_proxy": ("Codex HTTP(S) proxy (optional; e.g. http://127.0.0.1:7890)", "Codex HTTP(S) 代理（可选，如 http://127.0.0.1:7890）", "Codex HTTP(S) 代理（選填，如 http://127.0.0.1:7890）", "Codex HTTP(S) プロキシ（任意、例 http://127.0.0.1:7890）", "Codex HTTP(S) 프록시 (선택, 예: http://127.0.0.1:7890)"),
+    "codex_invalid_proxy": ("Enter an HTTP(S) proxy origin with a port, without credentials, path or query.", "请输入带端口的 HTTP(S) 代理地址，不含凭据、路径和查询参数。", "請輸入含連接埠的 HTTP(S) 代理位址，不含憑證、路徑及查詢參數。", "ポート付きの HTTP(S) URL を入力してください。認証情報・パス・クエリは含めないでください。", "포트가 있는 HTTP(S) 주소를 입력하세요. 인증 정보, 경로, 쿼리는 제외하세요."),
     "five_hours": ("5 hours", "5 小时", "5 小時", "5時間", "5시간"),
     "one_week": ("1 week", "一周", "一週", "1週間", "1주"),
     "select": ("Select", "选择", "選取", "選択", "선택"),

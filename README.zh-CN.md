@@ -48,6 +48,8 @@ Windows 固定安装到 `%LOCALAPPDATA%/Programs/AutoResumeAgent`。每次下载
 
 [本机更新流程](docs/LOCAL_UPDATES.md)
 
+若专用会话提示响应流断开，请在设置中填写 **Codex HTTP(S) 代理**（带端口，不含凭据），或使用 `--codex-proxy http://127.0.0.1:7890`。请填写自己的代理地址；程序不会假定端口。留空继承进程环境。此设置只传给 Codex 子进程，也包括独立的窗口启动客户端。
+
 ### 从源码运行
 
 需要 Python 3.11 或更新版本：
@@ -105,7 +107,7 @@ auto-resume-agent --agent opencode pause
 
 ## Codex 5 小时窗口启动（默认关闭）
 
-勾选仪表盘按钮上方的开关后，每次 Codex 主额度的 **300 分钟窗口截止**，会新建一个专用会话，发送准确文本 **回复 OK**；不要求旧窗口额度已经用完。此开关独立于“开启／暂停自动恢复”，也不要求存在监控会话。需要持续运行 Codex 监控；GUI 切换到 OpenCode 后不运行 Codex 监控。
+勾选仪表盘按钮上方的开关后，每次 Codex 主额度的 **300 分钟窗口截止**，会新建一个专用会话，发送准确文本 **回复 OK**；不要求旧窗口额度已经用完。此开关独立于“开启／暂停自动恢复”，也不要求存在监控会话。需要持续运行 Codex 监控且电脑保持唤醒；睡眠或关机期间无法在边界发送请求。GUI 切换到 OpenCode 后不运行 Codex 监控。
 
 ![窗口启动开关示例](docs/screenshots/dashboard.window-keeper.zh-CN.png)
 

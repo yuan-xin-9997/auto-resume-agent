@@ -46,12 +46,12 @@ Verify the archive's SHA-256 against its adjacent `.sha256` file before extracti
 
 ```powershell
 # Windows
-Get-FileHash .\AutoResumeAgent-v0.4.2-windows-x64.zip -Algorithm SHA256
+Get-FileHash .\AutoResumeAgent-v0.4.3-windows-x64.zip -Algorithm SHA256
 ```
 ```sh
 # Ubuntu / macOS
-sha256sum AutoResumeAgent-v0.4.2-linux-x64.tar.gz
-shasum -a 256 AutoResumeAgent-v0.4.2-macos-arm64.tar.gz
+sha256sum AutoResumeAgent-v0.4.3-linux-x64.tar.gz
+shasum -a 256 AutoResumeAgent-v0.4.3-macos-arm64.tar.gz
 ```
 
 Windows installs to `%LOCALAPPDATA%/Programs/AutoResumeAgent`. Run `Install.cmd` from each new release to update the same location and shortcuts; settings and monitored sessions stay in `%LOCALAPPDATA%/AutoResumeAgent`. `Launch.cmd` remains available for portable use.
@@ -59,6 +59,8 @@ Windows installs to `%LOCALAPPDATA%/Programs/AutoResumeAgent`. Run `Install.cmd`
 Tick session checkboxes to choose batch targets, or use **Select all**. Then click **Watch selected** or **Unwatch**. Checking a box alone does not change monitoring. Selections survive refreshes. Quota windows display **5 hours** and **1 week**, localized into all five languages.
 
 [Local deployment workflow](docs/LOCAL_UPDATES.md)
+
+If the Codex helper shows stream disconnections, configure **Codex HTTP(S) proxy** in Settings (an origin with an explicit port, without credentials), or use `--codex-proxy http://127.0.0.1:7890`. Use your own proxy address; the app does not assume a port. Blank inherits the process environment. The configured proxy applies only to external Codex processes, including the separate window helper.
 
 ### From source
 

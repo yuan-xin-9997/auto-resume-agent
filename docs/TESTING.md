@@ -71,3 +71,10 @@ Windows release installation uses a fixed per-user directory and preserves the s
 ## v0.4.2 — rewatch status
 
 75 tests pass on the development Windows 11 PC. The new regression reproduces a waiting recovery cancelled by unwatching, watches the same UUID again, checks the immediate and refreshed Watching status, and verifies that historical cancellation records remain unchanged. This is a status-display fix and does not revive or resend cancelled recovery requests.
+
+## v0.4.3 — window helper connectivity (2026-10-27)
+
+- 82 automated tests pass, including explicit proxy propagation from persisted settings to the separate WindowClient, preservation of the parent's environment, invalid credential/path/scheme/port rejection and existing at-most-once window rules.
+- Windows investigation found helper creation at the scheduled boundary followed by an interrupted turn without an OK reply. Passing the local HTTP proxy produced a real new helper thread and an exact OK completion in approximately 12 seconds. The helper wait is now 150 seconds rather than 45.
+- System sleep records explain the overnight missed boundary: suspend at 22:24 and resume at 07:01. No local process runs while the PC is asleep. This release does not change OS power settings or claim uninterrupted five-hour periods during sleep.
+- Proxy endpoints are installation-specific; no particular proxy port is built into the product. Credentials are rejected rather than persisted in proxy URLs. User conversations and historical ambiguous delivery claims are not replayed.

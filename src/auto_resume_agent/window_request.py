@@ -14,7 +14,7 @@ class WindowClient(Codex):
     METHODS = Codex.METHODS | {"thread/start", "thread/name/set", "turn/start"}
 
     def __init__(self, backend):
-        super().__init__(backend.argv[0], timeout=backend.timeout)
+        super().__init__(backend.argv[0], timeout=backend.timeout, proxy=backend.proxy)
         self.argv = list(backend.argv)
         self.owned = None
         self.creating = False
@@ -47,7 +47,7 @@ class WindowClient(Codex):
             pass
 
 
-def send(backend, on_created, can_send, wait_seconds=45):
+def send(backend, on_created, can_send, wait_seconds=150):
     client = WindowClient(backend)
     workspace = None
     try:

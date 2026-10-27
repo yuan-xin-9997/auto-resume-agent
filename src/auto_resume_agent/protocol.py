@@ -9,6 +9,7 @@ import time
 import sys
 import contextlib
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from . import __version__
 from .paths import codex_home
@@ -17,8 +18,25 @@ NO_WINDOW = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
 SPAWN_LOCK = threading.Lock()
 
 
-def external_environment():
+def proxy_url(value):
+    if not value:
+        return None
+    try:
+        parsed = urlsplit(value)
+        if (parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username is not None
+                or parsed.password is not None or parsed.path not in ("", "/") or parsed.query or parsed.fragment
+                or not parsed.port):
+            raise ValueError()
+    except ValueError:
+        raise BackendError("codex_invalid_proxy") from None
+    return value
+
+
+def external_environment(proxy=None):
     env = os.environ.copy()
+    if proxy:
+        for key in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
+            env[key] = proxy
     bundle = getattr(sys, "_MEIPASS", None)
     if not bundle:
         return env
@@ -82,8 +100,9 @@ def command(executable=None):
 class Codex:
     METHODS = {"initialize", "account/rateLimits/read", "thread/list", "thread/read", "thread/turns/list"}
 
-    def __init__(self, executable=None, timeout=20):
+    def __init__(self, executable=None, timeout=20, proxy=None):
         self.argv = command(executable)
+        self.proxy = proxy_url(proxy)
         self.timeout = timeout
         self.process = None
         self.sequence = 0
@@ -102,7 +121,7 @@ class Codex:
                     self.argv + ["app-server", "--stdio"], stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE, stderr=debug_log or subprocess.DEVNULL, text=True,
                     encoding="utf-8", bufsize=1, creationflags=NO_WINDOW,
-                    cwd=codex_home(), shell=False, env=external_environment())
+                    cwd=codex_home(), shell=False, env=external_environment(self.proxy))
         finally:
             if debug_log:
                 debug_log.close()
@@ -208,7 +227,7 @@ class Codex:
             with external_spawn():
                 process = subprocess.Popen(self.argv + ["queue", "--thread", thread_id, "--message", message],
                                     stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL,
-                                    encoding="utf-8", errors="replace", env=external_environment(),
+                                      encoding="utf-8", errors="replace", env=external_environment(self.proxy),
                                     creationflags=NO_WINDOW, cwd=codex_home(), shell=False)
             process.communicate(timeout=25)
         except (subprocess.TimeoutExpired, OSError):

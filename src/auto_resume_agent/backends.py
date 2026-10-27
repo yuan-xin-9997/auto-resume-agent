@@ -8,7 +8,8 @@ from .store import Store
 
 def configuration(base):
     return (base.get("agent", "codex"), base.get("codex_path", ""),
-            base.get("opencode_url", "http://127.0.0.1:4096"), base.get("opencode_directory", ""))
+            base.get("opencode_url", "http://127.0.0.1:4096"), base.get("opencode_directory", ""),
+            base.get("codex_proxy", ""))
 
 
 def selected_store(base, agent):
@@ -24,7 +25,7 @@ def selected_store(base, agent):
 def create_backend(base, agent):
     if agent == "opencode":
         return OpenCode(base.get("opencode_url", "http://127.0.0.1:4096"), base.get("opencode_directory", ""))
-    return Codex(base.get("codex_path") or None)
+    return Codex(base.get("codex_path") or None, proxy=base.get("codex_proxy") or None)
 
 
 def snapshot(backend):

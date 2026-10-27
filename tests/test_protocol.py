@@ -1,9 +1,37 @@
 import json
 import sys
 import uuid
+import os
+import pytest
 
 from auto_resume_agent.protocol import Codex
 from auto_resume_agent.protocol import external_environment
+
+
+def test_explicit_codex_proxy_is_inherited_by_helper_without_changing_parent(tmp_path, monkeypatch):
+    from auto_resume_agent.backends import create_backend, configuration
+    from auto_resume_agent.store import Store
+    from auto_resume_agent.window_request import WindowClient
+    monkeypatch.setenv("HTTPS_PROXY", "http://old-proxy:8080")
+    store = Store(tmp_path)
+    store.set("codex_path", sys.executable)
+    before = configuration(store)
+    store.set("codex_proxy", "http://127.0.0.1:7890")
+    backend = create_backend(store, "codex")
+    assert configuration(store) != before
+    helper = WindowClient(backend)
+    assert helper.proxy == backend.proxy == "http://127.0.0.1:7890"
+    env = external_environment(helper.proxy)
+    assert env["HTTPS_PROXY"] == env["HTTP_PROXY"] == env["https_proxy"] == helper.proxy
+    assert os.environ["HTTPS_PROXY"] == "http://old-proxy:8080"
+    assert external_environment()["HTTPS_PROXY"] == "http://old-proxy:8080"
+
+
+@pytest.mark.parametrize("value", ["socks://localhost:1234", "http://user:secret@localhost:1234", "http://localhost:1234/path", "http://localhost:1234?q=1", "http://localhost:bad", "http://localhost"])
+def test_invalid_proxy_rejected(value):
+    from auto_resume_agent.protocol import proxy_url, BackendError
+    with pytest.raises(BackendError, match="codex_invalid_proxy"):
+        proxy_url(value)
 
 
 def test_frozen_child_does_not_inherit_qt_library_paths(tmp_path, monkeypatch):

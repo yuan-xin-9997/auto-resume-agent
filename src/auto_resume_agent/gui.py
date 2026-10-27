@@ -301,6 +301,9 @@ class Window(QMainWindow):
         box.addWidget(self.label("codex_path", "section"))
         self.executable = QLineEdit(self.base_store.get("codex_path", ""))
         box.addWidget(self.executable)
+        box.addWidget(self.label("codex_proxy", "section"))
+        self.codex_proxy = QLineEdit(self.base_store.get("codex_proxy", ""))
+        box.addWidget(self.codex_proxy)
         box.addWidget(self.label("opencode_url", "section"))
         self.opencode_url = QLineEdit(self.base_store.get("opencode_url", "http://127.0.0.1:4096"))
         box.addWidget(self.opencode_url)
@@ -326,13 +329,16 @@ class Window(QMainWindow):
 
     def save(self):
         from .opencode import endpoint
+        from .protocol import proxy_url
         try:
             url = endpoint(self.opencode_url.text().strip())
+            proxy = proxy_url(self.codex_proxy.text().strip())
         except BackendError as error:
             QMessageBox.warning(self, self.text("error"), self.text(str(error)))
             return
         self.store.set("enabled", False)
         self.base_store.set("codex_path", self.executable.text().strip())
+        self.base_store.set("codex_proxy", proxy or "")
         self.base_store.set("opencode_url", url)
         self.base_store.set("opencode_directory", self.opencode_directory.text().strip())
         self.store = selected_store(self.base_store, self.agent)
