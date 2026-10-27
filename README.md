@@ -46,12 +46,12 @@ Verify the archive's SHA-256 against its adjacent `.sha256` file before extracti
 
 ```powershell
 # Windows
-Get-FileHash .\AutoResumeAgent-v0.4.3-windows-x64.zip -Algorithm SHA256
+Get-FileHash .\AutoResumeAgent-v0.4.4-windows-x64.zip -Algorithm SHA256
 ```
 ```sh
 # Ubuntu / macOS
-sha256sum AutoResumeAgent-v0.4.3-linux-x64.tar.gz
-shasum -a 256 AutoResumeAgent-v0.4.3-macos-arm64.tar.gz
+sha256sum AutoResumeAgent-v0.4.4-linux-x64.tar.gz
+shasum -a 256 AutoResumeAgent-v0.4.4-macos-arm64.tar.gz
 ```
 
 Windows installs to `%LOCALAPPDATA%/Programs/AutoResumeAgent`. Run `Install.cmd` from each new release to update the same location and shortcuts; settings and monitored sessions stay in `%LOCALAPPDATA%/AutoResumeAgent`. `Launch.cmd` remains available for portable use.
@@ -141,7 +141,7 @@ This consumes a **normal Codex request** using the configured model. It attempts
 4. Click **Enable recovery** and leave the monitor running. Keep the original Codex sessions open.
 5. See the dashboard and Activity page for waiting, queued, uncertain or progressed records.
 
-Recovery starts in observe-only mode on a new installation. Watching a session considers failures from up to one minute before you added it, then future failures. Closing the GUI stops its monitor; it does not install an invisible startup service. The saved enable/pause setting is retained for the next launch.
+Recovery starts in observe-only mode on a new installation. Watching a session includes its latest retryable failure, even if it occurred more than a minute before monitoring began, and future failures. Only the explicitly watched session's latest turn is inspected; cancelled or already-claimed recoveries are not replayed. Closing the GUI stops its monitor; it does not install an invisible startup service. The saved enable/pause setting is retained for the next launch.
 
 ### Command line
 

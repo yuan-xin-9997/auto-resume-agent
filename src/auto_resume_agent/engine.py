@@ -51,7 +51,9 @@ class Engine:
                 self._reconcile(tid, turn, records)
                 kind = category(turn)
                 completed = turn.get("completedAt")
-                if not kind or not numeric(completed) or completed < watch["armed"]:
+                # Explicitly watching a session includes its latest retryable failure,
+                # even when the user adds it more than a minute after the interruption.
+                if not kind or not numeric(completed):
                     continue
                 key = hashlib.sha256((str(watch["home"]) + tid + turn["id"]).encode()).hexdigest()[:32]
                 current = next((r for r in records if r["id"] == key), None)
@@ -94,7 +96,7 @@ class Engine:
             elif row["state"] == "waiting" and turn.get("status") in ("completed", "interrupted"):
                 self.store.update(row["id"], "superseded")
             elif row["state"] in ("sending", "queued", "accepted", "uncertain"):
-                if turn["id"] != row["turn_id"]:
+                if turn["id"] != row["turn_id"] and turn.get("status") != "interrupted":
                     # Metadata proves progression, but not who sent the new user message.
                     self.store.update(row["id"], "progressed")
                     self.store.event(tid, "progressed")

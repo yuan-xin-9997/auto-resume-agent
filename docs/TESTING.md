@@ -78,3 +78,11 @@ Windows release installation uses a fixed per-user directory and preserves the s
 - Windows investigation found helper creation at the scheduled boundary followed by an interrupted turn without an OK reply. Passing the local HTTP proxy produced a real new helper thread and an exact OK completion in approximately 12 seconds. The helper wait is now 150 seconds rather than 45.
 - System sleep records explain the overnight missed boundary: suspend at 22:24 and resume at 07:01. No local process runs while the PC is asleep. This release does not change OS power settings or claim uninterrupted five-hour periods during sleep.
 - Proxy endpoints are installation-specific; no particular proxy port is built into the product. Credentials are rejected rather than persisted in proxy URLs. User conversations and historical ambiguous delivery claims are not replayed.
+
+## v0.4.4 — previously interrupted watched sessions (2026-10-27)
+
+85 tests pass. Regressions cover an explicitly watched latest failure two hours older than the watch, at-most-once delivery after restart, preservation of cancellation when rewatching an old failure, and interrupted queue placeholders not being treated as execution progression. No history scan or unrestricted replacement agent is introduced.
+
+Live investigation found a usage-limit failure approximately 139 seconds before the user added monitoring; the prior 60-second eligibility cutoff excluded it. The corrected engine detected that exact latest failure and queued one continuation to the original UUID. Execution and task completion must be checked separately from queue acceptance.
+
+The real five-hour boundary at 2026-10-27 18:17:38 +08:00 was observed without manual triggering. A durable helper claim was created at 18:17:49.945, thread/read verified the fixed user prompt 回复 OK and an assistant OK in a completed turn, and the next reported reset became 23:17:58. The one-time observation automation was deleted after verification.

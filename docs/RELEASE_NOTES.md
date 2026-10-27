@@ -1,9 +1,9 @@
-# Auto Resume Agent v0.4.3
+# Auto Resume Agent v0.4.4
 
-Fix Codex five-hour helper connectivity: an explicit HTTP(S) proxy can now be configured in Settings or with --codex-proxy. It is inherited by both the monitor and its separate owned-thread helper without changing global environment or Codex configuration. Invalid URLs and embedded credentials are rejected; blank inherits the process environment.
+Fix watched sessions remaining idle after quota returns: explicitly watching a session now includes its latest eligible failure even when monitoring started more than one minute after the interruption. The previous one-minute cutoff silently skipped these failures.
 
-The helper completion deadline is extended from 45 to 150 seconds so a slow stream/reconnect is not interrupted prematurely. Existing durable claims and no-blind-replay behavior remain intact. Existing failed/uncertain windows are not resent.
+Do not label an interrupted queue-placeholder turn as session progression. Queued delivery still requires the original Codex session to be loaded; queue acceptance alone is not confirmed execution. Cancelled/claimed recoveries remain protected against replay, and only explicitly watched sessions are considered.
 
-82 automated tests pass, including proxy validation, child environment isolation and propagation to the helper. Live Windows investigation verified a newly created helper replying exactly OK through the configured local proxy. Overnight missed-boundary investigation also confirmed system sleep; the monitor cannot run while the computer is asleep or off.
+85 tests pass, including old latest failures, cancelled recovery preservation and queue-placeholder handling. The preceding v0.4.3 five-hour helper was also observed at a real server boundary: automatically started about 12 seconds after expiry, sent 回复 OK, received OK, and the reported reset advanced five hours.
 
-Includes native GUI/CLI bundles and SHA-256 checksums for Windows x64, Linux x64 and macOS arm64/x64. Prerelease; unsigned and not notarized.
+Windows installation preserves existing configuration and records. Native GUI/CLI bundles with SHA-256 files are included for Windows x64, Linux x64 and macOS arm64/x64. Prerelease; unsigned and not notarized.

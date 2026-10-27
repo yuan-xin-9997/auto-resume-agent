@@ -70,6 +70,28 @@ def test_no_submission_in_observe_mode(system):
     assert store.records()[0]["state"] == "waiting"
 
 
+def test_watch_includes_latest_failure_older_than_one_minute(system):
+    store, backend, engine = system
+    backend.turn["completedAt"] = NOW-7200
+    engine.tick()
+    assert len(backend.sent) == 1 and backend.sent[0][0] == TID
+    Engine(store, backend, lambda: NOW+500).tick()
+    assert len(backend.sent) == 1
+
+
+def test_old_cancelled_failure_is_not_revived_by_watch(system):
+    store, backend, engine = system
+    backend.turn["completedAt"] = NOW-7200
+    store.set("enabled", False)
+    engine.tick()
+    store.unwatch(TID)
+    store.watch(TID)
+    store.set("enabled", True)
+    engine.tick()
+    assert not backend.sent
+    assert store.records()[0]["state"] == "cancelled"
+
+
 def test_wait_until_latest_exhausted_window_resets_then_refresh(system):
     store, backend, engine = system
     backend.quota = {"rateLimitsByLimitId": {
@@ -156,6 +178,15 @@ def test_user_progress_cannot_be_claimed_as_delivery_confirmation(system):
     backend.turn = {"id": str(uuid.uuid4()), "status": "completed"}
     engine.tick()
     assert store.records()[0]["state"] == "progressed"
+
+
+def test_queued_interrupted_placeholder_is_not_execution_progress(system):
+    store, backend, engine = system
+    engine.tick()
+    backend.turn = {"id": str(uuid.uuid4()), "status": "interrupted"}
+    engine.tick()
+    assert store.records()[0]["state"] == "queued"
+    assert len(backend.sent) == 1
 
 
 def test_hourly_retry_budget(system):
