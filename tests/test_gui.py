@@ -125,6 +125,35 @@ def test_rewatch_cancelled_recovery_shows_watching_without_resetting_history(tmp
     window.close()
 
 
+def test_settings_survive_window_and_store_restart(tmp_path):
+    from auto_resume_agent import window_keeper
+    app = QApplication.instance() or QApplication([])
+    store = Store(tmp_path)
+    first = Window(store, start_worker=False)
+    first.languages.setCurrentIndex(first.languages.findData("zh-CN"))
+    first.auto_watch.setChecked(False)
+    first.keeper_toggle.setChecked(True)
+    first.codex_proxy.setText("http://127.0.0.1:7890")
+    first.opencode_url.setText("http://127.0.0.1:4097")
+    first.opencode_directory.setText(str(tmp_path))
+    first.save()
+    store.set("enabled", True)
+    tid = str(uuid.uuid4())
+    store.watch(tid)
+    first.close()
+    restarted = Store(tmp_path)
+    second = Window(restarted, start_worker=False)
+    assert second.language == "zh-CN"
+    assert not second.auto_watch.isChecked()
+    assert second.keeper_toggle.isChecked() and window_keeper.enabled(restarted)
+    assert second.codex_proxy.text() == "http://127.0.0.1:7890"
+    assert second.opencode_url.text() == "http://127.0.0.1:4097"
+    assert second.opencode_directory.text() == str(tmp_path)
+    assert restarted.get("enabled") is True
+    assert restarted.watched()[0]["id"] == tid
+    second.close()
+
+
 def test_quota_duration_labels_all_languages():
     from auto_resume_agent.i18n import duration_label
     assert duration_label(300, "zh-CN") == "5 小时"

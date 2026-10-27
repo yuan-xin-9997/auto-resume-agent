@@ -62,6 +62,8 @@ Tick session checkboxes to choose batch targets, or use **Select all**. Then cli
 
 If the Codex helper shows stream disconnections, configure **Codex HTTP(S) proxy** in Settings (an origin with an explicit port, without credentials), or use `--codex-proxy http://127.0.0.1:7890`. Use your own proxy address; the app does not assume a port. Blank inherits the process environment. The configured proxy applies only to external Codex processes, including the separate window helper.
 
+Settings persist in local SQLite across restarts. Language, feature switches and monitored sessions save immediately; connection fields require **Save settings**. Saving connection settings pauses recovery; enabling recovery again persists that state too.
+
 ### Default quota-session monitoring
 
 Unfinished Codex sessions whose **latest turn failed with a structured usage-limit error** are automatically added to monitoring by default. Discovery runs in the GUI worker and CLI `watch`/`check`, using paginated session lists and bounded batches, so recent sessions are prioritized without blocking on the entire history. Recovery still follows the existing enable/pause switch and quota checks. Completed, user-interrupted, archived, subagent and five-hour helper sessions are excluded.
