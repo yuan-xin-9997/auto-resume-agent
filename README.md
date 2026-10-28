@@ -46,12 +46,12 @@ Verify the archive's SHA-256 against its adjacent `.sha256` file before extracti
 
 ```powershell
 # Windows
-Get-FileHash .\AutoResumeAgent-v0.5.0-windows-x64.zip -Algorithm SHA256
+Get-FileHash .\AutoResumeAgent-v0.5.1-windows-x64.zip -Algorithm SHA256
 ```
 ```sh
 # Ubuntu / macOS
-sha256sum AutoResumeAgent-v0.5.0-linux-x64.tar.gz
-shasum -a 256 AutoResumeAgent-v0.5.0-macos-arm64.tar.gz
+sha256sum AutoResumeAgent-v0.5.1-linux-x64.tar.gz
+shasum -a 256 AutoResumeAgent-v0.5.1-macos-arm64.tar.gz
 ```
 
 Windows installs to `%LOCALAPPDATA%/Programs/AutoResumeAgent`. Run `Install.cmd` from each new release to update the same location and shortcuts; settings and monitored sessions stay in `%LOCALAPPDATA%/AutoResumeAgent`. `Launch.cmd` remains available for portable use.

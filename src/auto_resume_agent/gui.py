@@ -22,37 +22,41 @@ from . import window_keeper
 ASSETS = Path(__file__).parent / "assets"
 
 STYLE = """
-QWidget { background: #10151e; color: #e6edf7; font-family: 'Segoe UI', 'Noto Sans', sans-serif; font-size: 13px; }
-QFrame#sidebar { background: #151c28; border-right: 1px solid #273246; }
+QWidget { background: #fafafa; color: #18181b; font-family: 'Segoe UI', 'Noto Sans', sans-serif; font-size: 13px; }
+QFrame#sidebar { background: #f4f4f5; border-right: 1px solid #e4e4e7; }
 QFrame#sidebar QLabel { background: transparent; }
 QLabel#brand { font-size: 19px; font-weight: 700; }
-QLabel#title { font-size: 30px; font-weight: 700; }
-QLabel#muted { color: #9baac2; }
-QLabel#badge { color: #66e2b4; background: #193b36; padding: 7px 12px; border-radius: 6px; }
+QLabel#title { font-size: 26px; font-weight: 700; }
+QLabel#muted { color: #71717a; }
+QLabel#badge { color: #52525b; background: #f4f4f5; padding: 7px 12px; border-radius: 6px; }
 QLabel#section { font-size: 17px; font-weight: 600; }
-QFrame#card { background: #192231; border: 1px solid #2a384e; border-radius: 12px; }
+QFrame#card { background: #ffffff; border: 1px solid #e4e4e7; border-radius: 8px; }
 QFrame#card QLabel { background: transparent; }
-QLabel#amount { font-size: 32px; font-weight: 700; }
-QPushButton { background: #202c3e; border: 1px solid #33425c; padding: 10px 16px; border-radius: 7px; }
-QPushButton:hover { background: #2c3c54; }
-QPushButton:disabled { color: #68768d; }
-QPushButton#primary { background: #64e1b4; color: #102b23; border: none; font-weight: 600; }
-QPushButton#primary:hover { background: #8cebc9; }
+QLabel { background: transparent; }
+QScrollBar:vertical { background: #fafafa; width: 10px; }
+QScrollBar::handle:vertical { background: #d4d4d8; min-height: 24px; border-radius: 4px; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
+QLabel#amount { font-size: 30px; font-weight: 700; }
+QPushButton { background: #ffffff; border: 1px solid #d4d4d8; padding: 10px 16px; border-radius: 7px; }
+QPushButton:hover { background: #f4f4f5; }
+QPushButton:disabled { color: #a1a1aa; }
+QPushButton#primary { background: #27272a; color: #ffffff; border: none; font-weight: 600; }
+QPushButton#primary:hover { background: #52525b; }
 QPushButton#nav { text-align: left; background: transparent; border: none; padding: 13px; }
-QPushButton#nav:checked { background: #24384a; color: #78e5c0; }
-QTableWidget { background: #141d2a; gridline-color: #27354a; border: 1px solid #29374c; border-radius: 8px; selection-background-color: #294b54; }
+QPushButton#nav:checked { background: #e4e4e7; color: #18181b; }
+QTableWidget { background: #ffffff; gridline-color: #e4e4e7; border: 1px solid #e4e4e7; border-radius: 8px; selection-background-color: #e4e4e7; }
 QTableWidget::item { padding: 12px; }
-QHeaderView::section { background: #1c2839; color: #a8b8d0; border: none; padding: 12px 3px; }
-QCheckBox::indicator, QTableWidget::indicator { width: 16px; height: 16px; border: 1px solid #8398b4; border-radius: 3px; background: #141d2a; }
-QCheckBox::indicator:hover, QTableWidget::indicator:hover { border-color: #8cebc9; }
-QLineEdit, QComboBox { background: #1c2839; border: 1px solid #3b4c67; border-radius: 6px; padding: 9px; }
-QProgressBar { background: #2c3a50; border: none; border-radius: 4px; max-height: 7px; }
-QProgressBar::chunk { background: #69dfb6; border-radius: 4px; }
-QToolTip { color: #e6edf7; background: #243247; border: 1px solid #425676; }
+QHeaderView::section { background: #f4f4f5; color: #52525b; border: none; padding: 12px 3px; }
+QCheckBox::indicator, QTableWidget::indicator { width: 16px; height: 16px; border: 1px solid #a1a1aa; border-radius: 3px; background: #ffffff; }
+QCheckBox::indicator:hover, QTableWidget::indicator:hover { border-color: #52525b; }
+QLineEdit, QComboBox { background: #f4f4f5; border: 1px solid #d4d4d8; border-radius: 6px; padding: 9px; }
+QProgressBar { background: #e4e4e7; border: none; border-radius: 4px; max-height: 7px; }
+QProgressBar::chunk { background: #71717a; border-radius: 4px; }
+QToolTip { color: #18181b; background: #ffffff; border: 1px solid #d4d4d8; }
 """
 STYLE = STYLE.replace("'Segoe UI', 'Noto Sans', sans-serif", {
     "win32": "'Microsoft YaHei UI'", "darwin": "'PingFang SC'"}.get(sys.platform, "'Noto Sans CJK SC'"))
-STYLE += 'QCheckBox::indicator:checked, QTableWidget::indicator:checked { background: #64e1b4; border-color: #64e1b4; image: url("' + (ASSETS / 'check.svg').as_posix() + '"); }'
+STYLE += 'QCheckBox::indicator:checked, QTableWidget::indicator:checked { background: #27272a; border-color: #27272a; image: url("' + (ASSETS / 'check.svg').as_posix() + '"); }'
 
 
 def timestamp(value):
@@ -554,7 +558,7 @@ class Window(QMainWindow):
             if record and record["state"] == "waiting":
                 text += " · " + timestamp(record["due"])
             status = QTableWidgetItem(text)
-            status.setForeground(QColor("#79e3bd" if tid in watched else "#95a6bf"))
+            status.setForeground(QColor("#27272a" if tid in watched else "#71717a"))
             if record:
                 status.setToolTip(self.text(record["detail"]) + "\n" + record["id"])
             self.table.setItem(index, 3, status)
