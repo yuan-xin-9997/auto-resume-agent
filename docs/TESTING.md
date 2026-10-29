@@ -28,8 +28,8 @@
   [COMPATIBILITY.md](COMPATIBILITY.md): simulated tests, packaged startup, and
   real-platform recovery are not interchangeable. This change did not perform a
   new real Codex/OpenCode recovery, production quota exhaustion, code signing,
-  notarization, or a release. The historical real-platform checks below remain
-  the only real-recovery evidence.
+  or notarization. The v0.5.2 prerelease is built and published by CI; the
+  historical real-platform checks below remain the only real-recovery evidence.
 
 ## v0.3.0 — optional Codex window starter (2026-10-26)
 

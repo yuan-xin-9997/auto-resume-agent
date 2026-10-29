@@ -1,7 +1,6 @@
 # Auto Resume Agent v0.5.2
 
-Stability and compatibility preparation. This source change does not create a
-tag or publish a release.
+Stability and compatibility preparation for the v0.5.2 prerelease.
 
 - `doctor` now reports `compatible`, the failing read-only check, and
   `automatic_sending: blocked` when an experimental method or response field is
