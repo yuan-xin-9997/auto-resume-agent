@@ -1,5 +1,36 @@
 # Verification record
 
+## v0.5.2 — compatibility guardrails and release preparation (2026-10-28)
+
+- 123 automated tests pass on the development Windows 11 host. The suite uses
+  synthetic sessions, deterministic quota/error replies, temporary state
+  directories and an isolated loopback OpenCode fixture. It does not read a real
+  conversation or send a continuation to a real session.
+- New regressions cover: an unreadable quota window not authorizing another
+  window's reset; a latest-turn change between observation and claim; explicit
+  missing-method/protocol/response-shape errors; all-send blocking after an
+  incompatibility; pause and explicit cancel after a durable claim; OpenCode
+  billing denials supplied as objects, unstructured 429 bodies, changed status
+  shapes, and missing permission/question routes.
+- Synthetic sanitized fixtures for Codex CLI `0.163.0` and OpenCode `1.19.3` are
+  in `tests/fixtures/protocol/`. They are shape samples, not captured user data.
+  `tests/test_release_metadata.py` keeps the package version, archive names,
+  release notes, compatibility matrix and test evidence aligned.
+- Local Windows x64 packaging passed on 2026-10-28: `python scripts/build.py`
+  produced `AutoResumeAgent-v0.5.2-windows-x64.zip`; the bundled CLI reported
+  `0.5.2`; the bundled GUI passed `--smoke-test` with
+  `QT_QPA_PLATFORM=offscreen`; the archive contained the license, notices,
+  bundled license directory, CLI/GUI executables and installer; and the adjacent
+  `.sha256` matched. This is **packaged startup**, not a real recovery. The build
+  script now adds Conda's `Library/bin` to the Windows DLL search path so native
+  dependencies such as SQLite are included.
+- Evidence levels are recorded separately in
+  [COMPATIBILITY.md](COMPATIBILITY.md): simulated tests, packaged startup, and
+  real-platform recovery are not interchangeable. This change did not perform a
+  new real Codex/OpenCode recovery, production quota exhaustion, code signing,
+  notarization, or a release. The historical real-platform checks below remain
+  the only real-recovery evidence.
+
 ## v0.3.0 — optional Codex window starter (2026-10-26)
 
 - Default-off GUI checkbox and CLI on/off/status; independent of recovery and scoped by CODEX_HOME.

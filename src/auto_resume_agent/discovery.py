@@ -2,7 +2,7 @@
 import time
 
 from .model import category, numeric
-from .protocol import BackendError
+from .protocol import BackendError, is_compatibility_error
 from .store import valid_id
 
 
@@ -21,6 +21,10 @@ class QuotaDiscovery:
         head = now >= self.head_at
         if head or (not self.pending and self.cursor):
             page = backend.threads(None if head else self.cursor)
+            if not isinstance(page, dict) or not isinstance(page.get("data", []), list):
+                raise BackendError("codex_response_incompatible")
+            if any(not isinstance(row, dict) for row in page.get("data", [])):
+                raise BackendError("codex_response_incompatible")
             rows = [r for r in page.get("data", []) if valid_id(r.get("id"))
                     and (r.get("updatedAt") is None or self.seen.get(r["id"]) != r["updatedAt"])]
             fresh = {r["id"]: r for r in rows}
@@ -48,10 +52,14 @@ class QuotaDiscovery:
                 continue
             try:
                 turn = backend.latest(tid)
-                if (category(turn) == "usage_limit" and valid_id(turn.get("id"))
+                if (isinstance(turn, dict) and category(turn) == "usage_limit" and valid_id(turn.get("id"))
                         and numeric(turn.get("completedAt")) and store.get("auto_watch_quota", True)):
                     if store.watch(tid, automatic=True):
                         store.event(tid, "auto_watched")
                 self.seen[tid] = row.get("updatedAt")
-            except (BackendError, KeyError, TypeError, ValueError):
+            except BackendError as error:
+                if is_compatibility_error(error):
+                    raise
+                continue
+            except (KeyError, TypeError, ValueError):
                 continue

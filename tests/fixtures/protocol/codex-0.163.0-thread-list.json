@@ -1,0 +1,12 @@
+{
+  "data": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "name": "Synthetic fixture session",
+      "source": "cli",
+      "archived": false,
+      "updatedAt": 1800000000
+    }
+  ],
+  "nextCursor": null
+}

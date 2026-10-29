@@ -1,6 +1,7 @@
 """OpenCode's documented HTTP API; never reads provider credentials or approves tools."""
 import base64
 import email.utils
+import http.client
 import json
 import os
 import re
@@ -37,27 +38,44 @@ def endpoint(value):
 def normalize(info):
     if not isinstance(info, dict) or not valid_message(info.get("id")):
         raise BackendError("opencode_unknown_message")
-    timing = info.get("time") or {}
+    timing = info.get("time")
+    if timing is None:
+        timing = {}
+    if not isinstance(timing, dict):
+        raise BackendError("opencode_response_incompatible")
     completed = timing.get("completed")
     turn = {"id": info["id"], "status": "completed", "completedAt": completed / 1000 if numeric(completed) else None}
     error = info.get("error")
     if info.get("role") != "assistant" or not isinstance(error, dict):
         return turn
-    data = error.get("data") or {}
+    data = error.get("data")
+    if data is None:
+        data = {}
     if not isinstance(data, dict):
-        return turn
+        raise BackendError("opencode_response_incompatible")
     if error.get("name") != "APIError" or data.get("isRetryable") is not True:
         return turn
     # A billing denial can use HTTP 429; it is not a temporary rate limit.
-    try:
-        body = json.loads(data.get("responseBody", "{}"))
-        denial = body.get("error", {}) if isinstance(body, dict) else {}
-        if isinstance(denial, dict) and (denial.get("code") in (
-                "insufficient_quota", "billing_hard_limit_reached", "credits_exhausted")
-                or denial.get("type") == "insufficient_quota"):
+    # Accept both the documented JSON string and an already-decoded object.
+    body = data.get("responseBody")
+    denial = {}
+    if isinstance(body, dict):
+        denial = body.get("error") if isinstance(body.get("error"), dict) else body
+    elif isinstance(body, str) and body.strip():
+        try:
+            parsed = json.loads(body)
+        except (ValueError, TypeError):
+            # Unstructured denial text must not turn a 429 into a blind retry.
             return turn
-    except (ValueError, TypeError):
-        pass
+        if not isinstance(parsed, dict):
+            return turn
+        denial = parsed.get("error") if isinstance(parsed.get("error"), dict) else parsed
+    elif body is not None:
+        return turn
+    if isinstance(denial, dict) and (denial.get("code") in (
+            "insufficient_quota", "billing_hard_limit_reached", "credits_exhausted")
+            or denial.get("type") == "insufficient_quota"):
+        return turn
     status = data.get("statusCode")
     if status == 429:
         code = "rateLimitExceeded"
@@ -71,7 +89,8 @@ def normalize(info):
     headers = data.get("responseHeaders") or {}
     if not isinstance(headers, dict):
         headers = {}
-    value = next((v for k, v in headers.items() if k.lower() == "retry-after"), None)
+    value = next((v for k, v in headers.items()
+                  if isinstance(k, str) and k.lower() == "retry-after"), None)
     if value is not None and turn["completedAt"] is not None:
         try:
             seconds = float(value)
@@ -122,16 +141,24 @@ class OpenCode:
                 raw = response.read(16 * 1024 * 1024 + 1)
                 if len(raw) > 16 * 1024 * 1024:
                     raise BackendError("opencode_response_too_large")
-                return json.loads(raw) if raw else None
         except urllib.error.HTTPError as error:
             raise BackendError("opencode_http_" + str(error.code)) from None
-        except (OSError, ValueError, urllib.error.URLError):
+        except (OSError, urllib.error.URLError, http.client.HTTPException):
             raise BackendError("opencode_connection_failed") from None
+        try:
+            return json.loads(raw) if raw else None
+        except (ValueError, UnicodeDecodeError):
+            raise BackendError("opencode_invalid_response") from None
 
     def start(self):
         value = self.request("/global/health")
-        if not isinstance(value, dict) or value.get("healthy") is not True:
+        if not isinstance(value, dict):
+            raise BackendError("opencode_response_incompatible")
+        healthy = value.get("healthy")
+        if healthy is False:
             raise BackendError("opencode_unhealthy")
+        if healthy is not True:
+            raise BackendError("opencode_response_incompatible")
 
     def usage(self):
         self.start()
@@ -142,19 +169,35 @@ class OpenCode:
             raise BackendError("opencode_unexpected_cursor")
         rows = self.request("/session")
         if not isinstance(rows, list):
-            raise BackendError("opencode_unknown_sessions")
-        return {"data": [self.metadata(r) for r in rows if valid_session(r.get("id"))
-                         and not r.get("parentID") and not (r.get("time") or {}).get("archived")], "nextCursor": None}
+            raise BackendError("opencode_response_incompatible")
+        data = []
+        for row in rows:
+            if not isinstance(row, dict):
+                raise BackendError("opencode_response_incompatible")
+            metadata = self.metadata(row)
+            if not row.get("parentID") and not metadata["archived"]:
+                data.append(metadata)
+        return {"data": data, "nextCursor": None}
 
     @staticmethod
     def metadata(row):
+        if not isinstance(row, dict) or not valid_session(row.get("id")):
+            raise BackendError("opencode_response_incompatible")
+        timing = row.get("time")
+        if timing is not None and not isinstance(timing, dict):
+            raise BackendError("opencode_response_incompatible")
+        parent = row.get("parentID")
+        if parent is not None and not isinstance(parent, str):
+            raise BackendError("opencode_response_incompatible")
         return {"id": row["id"], "name": row.get("title"), "cwd": row.get("directory"), "source": "opencode",
-                "archived": bool(row.get("parentID") or row.get("revert") or (row.get("time") or {}).get("archived"))}
+                "archived": bool(parent or row.get("revert") or (timing or {}).get("archived"))}
 
     def thread(self, thread_id):
         if not valid_session(thread_id):
             raise BackendError("invalid_thread_id")
         row = self.request("/session/" + thread_id)
+        if not isinstance(row, dict):
+            raise BackendError("opencode_response_incompatible")
         if row.get("id") != thread_id:
             raise BackendError("opencode_identity_mismatch")
         return self.metadata(row)
@@ -164,21 +207,35 @@ class OpenCode:
             raise BackendError("invalid_thread_id")
         status = self.request("/session/status")
         if not isinstance(status, dict):
-            raise BackendError("opencode_unknown_status")
+            raise BackendError("opencode_response_incompatible")
         active = status.get(thread_id, {"type": "idle"})
+        if not isinstance(active, dict):
+            raise BackendError("opencode_response_incompatible")
         # OpenCode's own retry loop must finish before a second client acts.
         blocked = active.get("type") != "idle"
         for path in ("/permission", "/question"):
-            pending = self.request(path)
+            try:
+                pending = self.request(path)
+            except BackendError as error:
+                if str(error) in ("opencode_http_404", "opencode_http_405"):
+                    raise BackendError("opencode_experimental_api_missing") from None
+                raise
             if not isinstance(pending, list):
-                raise BackendError("opencode_unknown_requests")
-            blocked |= any(r.get("sessionID") == thread_id for r in pending)
+                raise BackendError("opencode_response_incompatible")
+            for row in pending:
+                if not isinstance(row, dict):
+                    raise BackendError("opencode_response_incompatible")
+                blocked |= row.get("sessionID") == thread_id
         rows = self.request("/session/" + thread_id + "/message", params={"limit": 1})
         if not isinstance(rows, list):
-            raise BackendError("opencode_unknown_messages")
+            raise BackendError("opencode_response_incompatible")
         if not rows:
             return None
-        info = rows[-1].get("info", {})
+        if not isinstance(rows[-1], dict):
+            raise BackendError("opencode_response_incompatible")
+        info = rows[-1].get("info")
+        if not isinstance(info, dict):
+            raise BackendError("opencode_response_incompatible")
         if info.get("sessionID") != thread_id:
             raise BackendError("opencode_identity_mismatch")
         turn = normalize(info)
@@ -192,7 +249,10 @@ class OpenCode:
             if isinstance(info.get("variant"), str):
                 self.routes[thread_id]["variant"] = info["variant"]
             if valid_message(info.get("parentID")):
-                parent = self.request("/session/" + thread_id + "/message/" + info["parentID"]).get("info", {})
+                parent = self.request("/session/" + thread_id + "/message/" + info["parentID"])
+                if not isinstance(parent, dict) or not isinstance(parent.get("info"), dict):
+                    raise BackendError("opencode_response_incompatible")
+                parent = parent["info"]
                 if parent.get("sessionID") != thread_id or parent.get("id") != info["parentID"] or parent.get("role") != "user":
                     raise BackendError("opencode_identity_mismatch")
                 # Per-message tool restrictions and client system instructions must survive continuation.

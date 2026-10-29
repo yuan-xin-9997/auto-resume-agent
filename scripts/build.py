@@ -10,6 +10,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 os.chdir(ROOT)
+# Conda keeps native dependencies such as sqlite3.dll in Library/bin, which is
+# not always on PATH when the build starts from a plain shell.
+conda_bin = Path(sys.base_prefix) / "Library" / "bin"
+if os.name == "nt" and conda_bin.is_dir():
+    os.environ["PATH"] = str(conda_bin) + os.pathsep + os.environ.get("PATH", "")
 sys.path.insert(0, str(ROOT / "src"))
 from auto_resume_agent import __version__
 

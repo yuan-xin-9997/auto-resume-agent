@@ -1,0 +1,29 @@
+{
+  "info": {
+    "id": "msg_fixture0002",
+    "sessionID": "ses_fixture0001",
+    "role": "assistant",
+    "agent": "build",
+    "parentID": "msg_fixture0000",
+    "providerID": "fixture",
+    "modelID": "fixture-model",
+    "time": {
+      "created": 1799999980000,
+      "completed": 1800000000000
+    },
+    "error": {
+      "name": "APIError",
+      "data": {
+        "message": "Synthetic billing denial",
+        "statusCode": 429,
+        "isRetryable": true,
+        "responseBody": {
+          "error": {
+            "code": "insufficient_quota"
+          }
+        }
+      }
+    }
+  },
+  "parts": []
+}

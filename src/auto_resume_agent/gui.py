@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
 
 from .engine import Engine
 from .i18n import LANGUAGES, tr, duration_label
-from .protocol import Codex, BackendError
+from .protocol import Codex, BackendError, compatibility_code
 from .store import Store
 from .backends import create_backend, selected_store, configuration
 from . import __version__
@@ -457,9 +457,18 @@ class Window(QMainWindow):
                 self.cursor = page.get("nextCursor")
             elif kind == "tick":
                 self.latest_tick = data
-                self.connection.setText(self.text(data["error"]) if data.get("error") else self.text("ready").replace("Codex", "OpenCode" if self.agent == "opencode" else "Codex"))
+                error = data.get("error")
+                if error and compatibility_code(error):
+                    self.connection.setText(self.text("compatibility_error") + " (" + error + ")")
+                else:
+                    self.connection.setText(self.text(error) if error else self.text("ready").replace("Codex", "OpenCode" if self.agent == "opencode" else "Codex"))
             else:
-                self.connection.setText(self.text(data) if data in ("codex_missing", "another_monitor") else self.text("generic_error").replace("Codex", "OpenCode" if self.agent == "opencode" else "Codex") + " (" + data + ")")
+                if data in ("codex_missing", "another_monitor"):
+                    self.connection.setText(self.text(data))
+                elif compatibility_code(data):
+                    self.connection.setText(self.text("compatibility_error") + " (" + data + ")")
+                else:
+                    self.connection.setText(self.text("generic_error").replace("Codex", "OpenCode" if self.agent == "opencode" else "Codex") + " (" + data + ")")
                 self.connection.setToolTip(data)
             self.render()
 

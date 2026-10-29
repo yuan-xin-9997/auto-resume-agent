@@ -1,3 +1,4 @@
+import contextlib
 import copy
 import json
 import uuid
@@ -239,3 +240,93 @@ def test_protocol_write_method_rejected():
     backend = object.__new__(Codex)
     with pytest.raises(BackendError):
         backend.call("turn/start")
+
+
+def test_unknown_window_keeps_whole_quota_snapshot_unknown(system):
+    store, backend, engine = system
+    backend.quota = {"rateLimitsByLimitId": {"codex": {
+        "primary": {"usedPercent": 100, "resetsAt": NOW+100},
+        "secondary": {"usedPercent": "not-a-number", "resetsAt": NOW+900}}}}
+    assert usage(backend.quota)["available"] is False
+    assert usage(backend.quota)["reset_at"] is None
+    engine.tick()
+    assert not backend.sent
+    assert store.records()[0]["state"] == "waiting"
+    assert store.records()[0]["detail"] == "quota_unknown"
+
+
+def test_latest_turn_change_before_claim_supersedes(system):
+    store, backend, engine = system
+    store.set("enabled", False)
+    engine.tick()
+    store.set("enabled", True)
+    original = backend.latest
+    calls = {"count": 0}
+    newer = {"id": str(uuid.uuid4()), "status": "inProgress"}
+
+    def latest(tid):
+        calls["count"] += 1
+        return copy.deepcopy(newer) if calls["count"] >= 2 else original(tid)
+
+    backend.latest = latest
+    engine.tick()
+    assert not backend.sent
+    assert store.records()[0]["state"] == "superseded"
+
+
+def test_interface_incompatibility_blocks_all_sends(system):
+    store, backend, engine = system
+    second = str(uuid.uuid4())
+    store.watch(second)
+
+    def thread(tid):
+        if tid == TID:
+            raise BackendError("codex_experimental_api_missing")
+        return {"id": tid, "source": "appServer", "archived": False}
+
+    backend.thread = thread
+    result = engine.tick()
+    assert result["error"] == "codex_experimental_api_missing"
+    assert not backend.sent
+
+
+def test_pause_after_claim_prevents_submit(system):
+    store, backend, engine = system
+    original_db = store.db
+    paused = {"done": False}
+
+    @contextlib.contextmanager
+    def db():
+        with original_db() as connection:
+            yield connection
+        if not paused["done"]:
+            with original_db() as check:
+                row = check.execute("SELECT state FROM recoveries ORDER BY created DESC LIMIT 1").fetchone()
+            if row and row["state"] == "sending":
+                paused["done"] = True
+                store.set("enabled", False)
+
+    store.db = db
+    engine.tick()
+    assert paused["done"]
+    assert not backend.sent
+    assert store.records()[0]["state"] == "cancelled"
+
+
+def test_cancel_or_unwatch_cancels_claimed_record(system):
+    store, backend, engine = system
+    store.set("enabled", False)
+    engine.tick()
+    record = store.records()[0]
+    with store.db() as db:
+        db.execute("UPDATE recoveries SET state='sending' WHERE id=?", (record["id"],))
+    assert store.cancel(record["id"]) is True
+    assert store.records()[0]["state"] == "cancelled"
+
+    with store.db() as db:
+        db.execute("UPDATE recoveries SET state='sending' WHERE id=?", (record["id"],))
+    store.unwatch(TID)
+    assert store.records()[0]["state"] == "cancelled"
+    store.set("enabled", True)
+    engine.tick()
+    assert not backend.sent

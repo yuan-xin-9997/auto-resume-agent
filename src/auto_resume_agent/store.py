@@ -83,8 +83,16 @@ class Store:
     def unwatch(self, thread_id):
         with self.db() as db:
             db.execute("INSERT OR IGNORE INTO watch_exclusions VALUES (?,?)", (thread_id, self.source))
-            db.execute("DELETE FROM watched WHERE id=?", (thread_id,))
-            db.execute("UPDATE recoveries SET state='cancelled' WHERE thread_id=? AND state='waiting'", (thread_id,))
+            db.execute("DELETE FROM watched WHERE id=? AND home=?", (thread_id, self.source))
+            # A claimed-but-not-yet-submitted record is still user-cancellable.
+            db.execute("UPDATE recoveries SET state='cancelled' WHERE thread_id=? AND state IN ('waiting','sending')",
+                       (thread_id,))
+
+    def cancel(self, record_id):
+        with self.db() as db:
+            return bool(db.execute(
+                "UPDATE recoveries SET state='cancelled' WHERE id=? AND state IN ('waiting','sending')",
+                (record_id,)).rowcount)
 
     def watched(self):
         with self.db() as db:

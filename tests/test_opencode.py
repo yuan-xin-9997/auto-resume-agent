@@ -204,6 +204,60 @@ def test_cli_doctor_and_usage_without_codex(tmp_path, service, capsys):
     _, url = service
     args = ["--home", str(tmp_path), "--agent", "opencode", "--opencode-url", url]
     assert main(args+["doctor"]) == 0
-    assert json.loads(capsys.readouterr().out)["quota_known"] is False
+    report = json.loads(capsys.readouterr().out)
+    assert report["quota_known"] is False
+    assert report["compatible"] is True and report["automatic_sending"] == "available_when_enabled"
     assert main(args+["usage"]) == 0
     assert json.loads(capsys.readouterr().out)["reason"] == "quota_not_exposed"
+
+
+def test_billing_denial_objects_and_unstructured_429_are_not_retried():
+    row = assistant()
+    row["error"]["data"]["responseBody"] = {"error": {"code": "insufficient_quota"}}
+    assert normalize(row)["status"] != "failed"
+    row = assistant()
+    row["error"]["data"]["responseBody"] = "{not-json"
+    assert normalize(row)["status"] != "failed"
+    row = assistant()
+    row["error"]["data"]["responseBody"] = ["unexpected"]
+    assert normalize(row)["status"] != "failed"
+
+
+def test_normalize_rejects_changed_timing_and_error_shapes():
+    with pytest.raises(BackendError, match="opencode_unknown_message"):
+        normalize([])
+    with pytest.raises(BackendError, match="opencode_response_incompatible"):
+        normalize({"id": MID, "time": []})
+    with pytest.raises(BackendError, match="opencode_response_incompatible"):
+        normalize({"id": MID, "time": {}, "role": "assistant", "error": {"name": "APIError", "data": []}})
+
+
+def test_missing_permission_or_question_endpoint_is_explicit():
+    backend = OpenCode("http://127.0.0.1:4096")
+
+    def request(path, body=None, params=None):
+        if path == "/session/status":
+            return {}
+        if path in ("/permission", "/question"):
+            raise BackendError("opencode_http_404")
+        raise AssertionError(path)
+
+    backend.request = request
+    with pytest.raises(BackendError, match="opencode_experimental_api_missing"):
+        backend.latest(SID)
+
+
+def test_changed_status_shape_blocks_all_sends(tmp_path, service):
+    state, url = service
+    _, store, backend = prepare(tmp_path, url)
+    original = backend.request
+
+    def request(path, body=None, params=None):
+        if path == "/session/status":
+            return []
+        return original(path, body, params)
+
+    backend.request = request
+    result = Engine(store, backend, lambda: NOW+100).tick()
+    assert result["error"] == "opencode_response_incompatible"
+    assert not state["submitted"]

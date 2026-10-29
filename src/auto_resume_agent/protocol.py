@@ -13,9 +13,19 @@ from urllib.parse import urlsplit
 
 from . import __version__
 from .paths import codex_home
+from .store import valid_id
 
 NO_WINDOW = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
 SPAWN_LOCK = threading.Lock()
+COMPATIBILITY_PREFIXES = (
+    "codex_experimental_api_missing",
+    "codex_protocol_incompatible",
+    "codex_response_incompatible",
+    "opencode_experimental_api_missing",
+    "opencode_response_incompatible",
+    "opencode_invalid_response",
+    "opencode_unexpected_cursor",
+)
 
 
 def proxy_url(value):
@@ -77,6 +87,16 @@ class BackendError(RuntimeError):
     pass
 
 
+def compatibility_code(value):
+    text = str(value)
+    return next((prefix for prefix in COMPATIBILITY_PREFIXES
+                 if text == prefix or text.startswith(prefix + ":")), None)
+
+
+def is_compatibility_error(error):
+    return isinstance(error, BackendError) and compatibility_code(error) is not None
+
+
 def command(executable=None):
     found = executable or shutil.which("codex")
     if not found:
@@ -130,7 +150,12 @@ class Codex:
         try:
             result = self.call("initialize", {"clientInfo": {"name": "auto_resume_agent", "version": __version__},
                                "capabilities": {"experimentalApi": True}}, initialize=True)
-            if result.get("codexHome") and Path(result["codexHome"]).resolve() != codex_home():
+            if not isinstance(result, dict):
+                raise BackendError("codex_response_incompatible")
+            home = result.get("codexHome")
+            if home is not None and not isinstance(home, str):
+                raise BackendError("codex_response_incompatible")
+            if home and Path(home).resolve() != codex_home():
                 raise BackendError("codex_home_mismatch")
             self._write({"method": "initialized"})
         except BaseException:
@@ -195,7 +220,13 @@ class Codex:
                     continue
                 if "error" in result:
                     # Do not persist raw errors, account details, or conversation text.
-                    raise BackendError("protocol_error_" + str(result["error"].get("code", "unknown")))
+                    error = result["error"]
+                    code = error.get("code") if isinstance(error, dict) else None
+                    if code == -32601:
+                        raise BackendError("codex_experimental_api_missing")
+                    if code in (-32600, -32602, -32700):
+                        raise BackendError("codex_protocol_incompatible")
+                    raise BackendError("protocol_error_" + str(code if code is not None else "unknown"))
                 return result.get("result", {})
         except (OSError, ValueError, queue.Empty):
             self.close()
@@ -203,25 +234,49 @@ class Codex:
         raise BackendError("codex_timeout_or_disconnected")
 
     def usage(self):
-        return self.call("account/rateLimits/read")
+        value = self.call("account/rateLimits/read")
+        if (not isinstance(value, dict) or not any(key in value for key in (
+                "rateLimits", "rateLimitsByLimitId", "ordinaryUsageAllowed"))):
+            raise BackendError("codex_response_incompatible")
+        return value
 
     def activate_window(self, on_created, can_send):
         from .window_request import send
         return send(self, on_created, can_send)
 
     def threads(self, cursor=None):
-        return self.call("thread/list", {"limit": 100, "cursor": cursor, "sortKey": "updated_at",
+        value = self.call("thread/list", {"limit": 100, "cursor": cursor, "sortKey": "updated_at",
                          "sourceKinds": ["cli", "vscode", "appServer", "exec"], "archived": False})
+        if not isinstance(value, dict) or not isinstance(value.get("data", []), list):
+            raise BackendError("codex_response_incompatible")
+        if any(not isinstance(row, dict) or not valid_id(row.get("id")) for row in value.get("data", [])):
+            raise BackendError("codex_response_incompatible")
+        if value.get("nextCursor") is not None and not isinstance(value["nextCursor"], str):
+            raise BackendError("codex_response_incompatible")
+        return value
 
     def thread(self, thread_id):
-        return self.call("thread/read", {"threadId": thread_id, "includeTurns": False})["thread"]
+        value = self.call("thread/read", {"threadId": thread_id, "includeTurns": False})
+        thread = value.get("thread") if isinstance(value, dict) else None
+        if not isinstance(thread, dict) or thread.get("id") != thread_id:
+            raise BackendError("codex_response_incompatible")
+        return thread
 
     def latest(self, thread_id):
-        rows = self.call("thread/turns/list", {"threadId": thread_id, "limit": 1,
-                         "sortDirection": "desc", "itemsView": "notLoaded"}).get("data", [])
-        return rows[0] if rows else None
+        value = self.call("thread/turns/list", {"threadId": thread_id, "limit": 1,
+                         "sortDirection": "desc", "itemsView": "notLoaded"})
+        rows = value.get("data") if isinstance(value, dict) else None
+        if not isinstance(rows, list):
+            raise BackendError("codex_response_incompatible")
+        if not rows:
+            return None
+        if not isinstance(rows[0], dict) or not valid_id(rows[0].get("id")):
+            raise BackendError("codex_response_incompatible")
+        return rows[0]
 
     def submit(self, thread_id, message):
+        if not valid_id(thread_id):
+            return "uncertain"
         process = None
         try:
             with external_spawn():

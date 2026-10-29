@@ -29,7 +29,7 @@ Agent 任务中途额度耗尽后，本软件检测失败轮次，查询 Codex �
 
 ## 安装
 
-从 [Releases](https://github.com/yuan-xin-9997/auto-resume-agent/releases) 下载对应系统和处理器的压缩包。原生包自带 Python，但仍需**单独安装并登录你使用的 Agent（Codex 或 OpenCode 服务）**。OpenCode 实测版本为 **1.19.3**。实际测试的 Codex CLI 版本为 **0.163.0**；其他版本请先运行 `doctor`，旧版本可能不支持相关实验接口。
+从 [Releases](https://github.com/yuan-xin-9997/auto-resume-agent/releases) 下载对应系统和处理器的压缩包。原生包自带 Python，但仍需**单独安装并登录你使用的 Agent（Codex 或 OpenCode 服务）**。OpenCode 实测版本为 **1.19.3**。实际测试的 Codex CLI 版本为 **0.163.0**；其他版本请先运行 `doctor`，旧版本可能不支持相关实验接口。接口方法缺失或响应字段变化时，`doctor` 会报告 `compatible`、失败步骤及 `automatic_sending: blocked`，且不会提交继续指令。
 
 | 系统 | 包名 | 启动方式 |
 | --- | --- | --- |
@@ -38,7 +38,7 @@ Agent 任务中途额度耗尽后，本软件检测失败轮次，查询 Codex �
 | macOS 27 Apple Silicon | `*-macos-arm64.tar.gz` | 解压，运行 `sh install.sh`，打开 `~/Applications/AutoResumeAgent.app` |
 | macOS 27 Intel | `*-macos-x64.tar.gz` | 同上，选择 Intel 包 |
 
-以上是目标平台；请以[实际测试矩阵](docs/TESTING.md)为准。程序未进行商业代码签名和苹果公证，系统可能要求按正常流程批准打开。安装脚本不会修改系统安全设置。Mac CLI 放在 `~/.local/bin`，必要时将该目录加入 PATH。
+以上是目标平台；请以[兼容性矩阵](docs/COMPATIBILITY.md)和[实际测试记录](docs/TESTING.md)为准。程序默认未进行商业代码签名和苹果公证，系统可能要求按正常流程批准打开；可选的维护者签名配置见 [SIGNING.md](docs/SIGNING.md)。安装脚本不会修改系统安全设置。Mac CLI 放在 `~/.local/bin`，必要时将该目录加入 PATH。
 
 使用压缩包旁的 `.sha256` 文件校验下载：Windows 用 `Get-FileHash 文件名 -Algorithm SHA256`，Ubuntu 用 `sha256sum 文件名`，Mac 用 `shasum -a 256 文件名`。
 
@@ -204,7 +204,7 @@ python scripts/make_icons.py
 python scripts/build.py
 ```
 
-在目标系统及架构原生构建。GitHub Actions 测试并构建 Windows x64、Linux x64、Mac arm64 和 x64。所有构建通过后，版本标签自动发布包含校验和的 **prerelease**。详见[发布说明](docs/RELEASE_NOTES.md)与[测试证据](docs/TESTING.md)。
+在目标系统及架构原生构建。GitHub Actions 测试并构建 Windows x64、Linux x64、Mac arm64 和 x64。所有构建通过后，版本标签自动发布包含校验和的 **prerelease**。详见[发布说明](docs/RELEASE_NOTES.md)、[测试证据](docs/TESTING.md)、[发布检查表](docs/RELEASE_CHECKLIST.md)与[贡献指南](CONTRIBUTING.md)。安全报告见 [SECURITY.md](SECURITY.md)；升级与回滚见[升级说明](docs/UPGRADING.md)。
 
 ## 致谢与许可证
 

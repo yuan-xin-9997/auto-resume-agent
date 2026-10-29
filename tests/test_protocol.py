@@ -1,10 +1,11 @@
 import json
+import queue
 import sys
 import uuid
 import os
 import pytest
 
-from auto_resume_agent.protocol import Codex
+from auto_resume_agent.protocol import Codex, BackendError
 from auto_resume_agent.protocol import external_environment
 
 
@@ -85,3 +86,44 @@ for line in sys.stdin:
         backend.argv = original
     finally:
         backend.close()
+
+
+@pytest.mark.parametrize("code,expected", [
+    (-32601, "codex_experimental_api_missing"),
+    (-32600, "codex_protocol_incompatible"),
+    (-32602, "codex_protocol_incompatible"),
+    (-32700, "codex_protocol_incompatible"),
+    (-32000, "protocol_error_-32000"),
+])
+def test_json_rpc_errors_are_classified_without_raw_text(code, expected):
+    backend = object.__new__(Codex)
+    backend.sequence = 0
+    backend.timeout = 1
+    backend.responses = queue.Queue()
+    backend.start = lambda: None
+
+    def write(value):
+        backend.responses.put({"id": value["id"], "error": {"code": code, "message": "PRIVATE"}})
+
+    backend._write = write
+    with pytest.raises(BackendError, match=expected):
+        backend.call("thread/turns/list")
+
+
+def test_codex_response_shape_changes_are_explicit():
+    backend = object.__new__(Codex)
+    backend.call = lambda *args, **kwargs: {"data": "not-a-list"}
+    with pytest.raises(BackendError, match="codex_response_incompatible"):
+        backend.latest(str(uuid.uuid4()))
+
+    backend.call = lambda *args, **kwargs: {"thread": None}
+    with pytest.raises(BackendError, match="codex_response_incompatible"):
+        backend.thread(str(uuid.uuid4()))
+
+    backend.call = lambda *args, **kwargs: {"data": [{"id": "not-a-uuid"}]}
+    with pytest.raises(BackendError, match="codex_response_incompatible"):
+        backend.threads()
+
+    backend.call = lambda *args, **kwargs: {}
+    with pytest.raises(BackendError, match="codex_response_incompatible"):
+        backend.usage()

@@ -7,10 +7,60 @@ import threading
 from . import __version__
 from .engine import Engine
 from .model import usage
-from .protocol import Codex, BackendError
+from .protocol import Codex, BackendError, is_compatibility_error
 from .store import Store
 from .backends import create_backend, selected_store, snapshot
 from . import window_keeper
+
+
+def diagnose(backend, agent, state_dir):
+    """Read-only adapter check; never submits a continuation."""
+    shape_error = "opencode_response_incompatible" if agent == "opencode" else "codex_response_incompatible"
+    report = {"agent": agent, "app_server": "ok", "compatible": True, "checks": {},
+              "quota_known": False, "state_dir": str(state_dir),
+              "submission_tested": False, "automatic_sending": "available_when_enabled"}
+
+    def failed(step, error):
+        report["checks"][step] = "failed"
+        report["compatible"] = False
+        report["app_server"] = "incompatible" if is_compatibility_error(error) else "unavailable"
+        report["error"] = str(error)
+        report["automatic_sending"] = "blocked"
+        return report
+
+    try:
+        backend.start()
+        report["checks"]["start"] = "ok"
+    except BackendError as error:
+        return failed("start", error)
+    try:
+        quota = snapshot(backend)
+        report["quota_known"] = quota.get("available") is not None
+        report["checks"]["usage"] = "ok"
+    except BackendError as error:
+        return failed("usage", error)
+    try:
+        page = backend.threads()
+        rows = page.get("data", []) if isinstance(page, dict) else None
+        if not isinstance(rows, list):
+            raise BackendError(shape_error)
+        report["checks"]["thread_list"] = "ok"
+        if rows:
+            tid = rows[0].get("id") if isinstance(rows[0], dict) else None
+            if not tid:
+                raise BackendError(shape_error)
+            backend.thread(tid)
+            report["checks"]["thread_read"] = "ok"
+            backend.latest(tid)
+            report["checks"]["latest_turn"] = "ok"
+        else:
+            report["checks"]["thread_read"] = "not_tested_no_sessions"
+            report["checks"]["latest_turn"] = "not_tested_no_sessions"
+    except BackendError as error:
+        return failed("history", error)
+    except (KeyError, TypeError, ValueError):
+        return failed("history", BackendError(shape_error))
+    return report
 
 
 def main(argv=None):
@@ -98,7 +148,7 @@ def main(argv=None):
         store.unwatch(args.id)
         return 0
     if args.action == "cancel":
-        store.update(args.id, "cancelled")
+        print(json.dumps({"cancelled": store.cancel(args.id)}))
         return 0
     if args.action == "status":
         print(json.dumps({"enabled": store.get("enabled", False), "watched": store.watched(),
@@ -121,17 +171,10 @@ def main(argv=None):
                 if not cursor:
                     break
         elif args.action == "doctor":
-            backend.start()
-            quota = snapshot(backend)
             # Verify the exact methods used by the monitor without submitting anything.
-            page = backend.threads()
-            compatible = True
-            if page.get("data"):
-                tid = page["data"][0]["id"]
-                backend.thread(tid)
-                backend.latest(tid)
-            print(json.dumps({"agent": agent, "app_server": "ok", "history": compatible, "quota_known": quota["available"] is not None,
-                              "state_dir": str(store.root), "submission_tested": False}, indent=2))
+            report = diagnose(backend, agent, store.root)
+            print(json.dumps(report, indent=2))
+            return 0 if report["compatible"] else 1
         else:
             engine = Engine(store, backend)
             stop = threading.Event()

@@ -3,7 +3,7 @@ import time
 
 from .model import usage, category, delay, next_delay, numeric
 from .store import engine_lock, valid_id
-from .protocol import BackendError
+from .protocol import BackendError, is_compatibility_error
 from .backends import snapshot
 from . import window_keeper
 from .discovery import QuotaDiscovery
@@ -34,13 +34,22 @@ class Engine:
         # Re-query when a deadline arrives, including the first tick after system wake.
         if (now - self.last_usage >= 30 or (due is not None and due <= now)
                 or (numeric(keeper_due) and now >= keeper_due+2 and self.last_usage < keeper_due+2)):
-            self.snapshot = snapshot(self.backend)
+            try:
+                self.snapshot = snapshot(self.backend)
+            except BackendError as error:
+                if is_compatibility_error(error):
+                    return self._blocked(error)
+                raise
             self.last_usage = now
             self.store.set("usage", {**self.snapshot, "checked_at": now})
         discovery_error = False
         try:
             self.discovery.scan(self.store, self.backend, now)
-        except (BackendError, KeyError, TypeError, ValueError):
+        except BackendError as error:
+            if is_compatibility_error(error):
+                return self._blocked(error)
+            discovery_error = True
+        except (KeyError, TypeError, ValueError):
             discovery_error = True
         watched = self.store.watched()
         problems = []
@@ -48,12 +57,18 @@ class Engine:
             tid = watch["id"]
             try:
                 metadata = self.backend.thread(tid)
+                if not isinstance(metadata, dict):
+                    raise ValueError("metadata")
                 # Archived, imported, and subagent threads never receive automatic messages.
                 source = metadata.get("source")
                 if metadata.get("archived") or not isinstance(source, str) or source not in ("cli", "vscode", "appServer", "exec", "opencode"):
                     continue
                 turn = self.backend.latest(tid)
-                if not turn or not getattr(self.backend, "valid_turn_id", valid_id)(turn.get("id")):
+                if not isinstance(turn, dict):
+                    if turn is not None:
+                        raise ValueError("turn")
+                    continue
+                if not getattr(self.backend, "valid_turn_id", valid_id)(turn.get("id")):
                     continue
                 self._reconcile(tid, turn, records)
                 kind = category(turn)
@@ -82,7 +97,11 @@ class Engine:
                     current = {"id": key, "thread_id": tid, "turn_id": turn["id"], "kind": kind, "state": state, "due": initial}
                 if enabled and current["state"] == "waiting" and current["due"] <= now:
                     self._attempt(current, now)
-            except (BackendError, KeyError, TypeError, ValueError):
+            except BackendError as error:
+                if is_compatibility_error(error):
+                    return self._blocked(error)
+                problems.append(tid)
+            except (KeyError, TypeError, ValueError):
                 problems.append(tid)
         pending = [r["due"] for r in self.store.records() if r["state"] == "waiting" and r["due"] > self.clock()]
         if keeper is not None:
@@ -93,6 +112,14 @@ class Engine:
                 "window_keeper": keeper,
                 "error": "thread_read_failed" if problems or discovery_error else None,
                 "delay": next_delay(self.clock(), min(pending) if pending else None)}
+
+    def _blocked(self, error):
+        # An adapter contract change is not a per-session hiccup: do not send
+        # anything until doctor/the adapter is updated.
+        return {"usage": self.snapshot, "enabled": self.store.get("enabled", False),
+                "watched": len(self.store.watched()),
+                "window_keeper": window_keeper.status(self.store) if self.store.agent == "codex" else None,
+                "error": str(error), "delay": 10}
 
     def _reconcile(self, tid, turn, records):
         for row in records:
@@ -118,6 +145,8 @@ class Engine:
             self.store.update(row["id"], "waiting", "waiting_reset" if reset else "quota_unknown", due)
             return
         latest = self.backend.latest(row["thread_id"])
+        if latest is not None and not isinstance(latest, dict):
+            raise ValueError("latest_turn")
         if not latest or latest.get("id") != row["turn_id"] or category(latest) != row["kind"]:
             self.store.update(row["id"], "superseded")
             return
@@ -125,13 +154,27 @@ class Engine:
         with self.store.db() as db:
             # Pause/unwatch in another UI between check and claim must take effect.
             enabled = db.execute("SELECT value FROM settings WHERE key='enabled'").fetchone()
-            watched = db.execute("SELECT 1 FROM watched WHERE id=?", (row["thread_id"],)).fetchone()
+            watched = db.execute("SELECT 1 FROM watched WHERE id=? AND home=?",
+                                 (row["thread_id"], self.store.source)).fetchone()
             if not watched or not enabled or enabled[0] != "true":
                 return
             changed = db.execute("UPDATE recoveries SET state='sending',submitted=? WHERE id=? AND state='waiting'",
                                  (now, row["id"])).rowcount
         if not changed:
             return
+        # Pause, unwatch, or an explicit cancel after the claim still wins. The
+        # final process boundary is not atomic, but this closes the claim race.
+        with self.store.db() as db:
+            enabled = db.execute("SELECT value FROM settings WHERE key='enabled'").fetchone()
+            watched = db.execute("SELECT 1 FROM watched WHERE id=? AND home=?",
+                                 (row["thread_id"], self.store.source)).fetchone()
+            state = db.execute("SELECT state FROM recoveries WHERE id=?", (row["id"],)).fetchone()
+        if not watched or not enabled or enabled[0] != "true" or not state or state[0] != "sending":
+            if state and state[0] == "sending":
+                self.store.update(row["id"], "cancelled", "cancelled_before_submit")
+            return
         result = self.backend.submit(row["thread_id"], MESSAGE + "\n[Auto Resume Agent: " + row["id"] + "]")
+        if result not in ("queued", "accepted", "uncertain"):
+            result = "uncertain"
         self.store.update(row["id"], result, "open_session" if result == "queued" else "" if result == "accepted" else "delivery_unknown")
         self.store.event(row["thread_id"], result)

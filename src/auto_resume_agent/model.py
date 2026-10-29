@@ -34,7 +34,9 @@ def usage(value):
                 blocked.append(reset)
     if blocked or explicit:
         result["available"] = False
-        if blocked and all(x is not None for x in blocked) and not explicit:
+        # An unreadable window keeps the whole snapshot unknown: never use one
+        # known reset to authorize a send while another window is malformed.
+        if blocked and not unknown and all(x is not None for x in blocked) and not explicit:
             result["reset_at"] = max(blocked)
     elif result["windows"] and not unknown:
         result["available"] = True

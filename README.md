@@ -31,7 +31,7 @@ Supports **Codex CLI/local desktop sessions and OpenCode HTTP server sessions**.
 
 ## Install
 
-Download the archive matching your OS and processor from [Releases](https://github.com/yuan-xin-9997/auto-resume-agent/releases). Python is included in native bundles; **The agent you use must be installed separately and logged in** (Codex or an OpenCode server). OpenCode integration baseline: **1.19.3**. The tested integration is Codex CLI **0.163.0**. Run `doctor` to check other versions; the app-server interface is experimental and older versions may lack the required methods.
+Download the archive matching your OS and processor from [Releases](https://github.com/yuan-xin-9997/auto-resume-agent/releases). Python is included in native bundles; **The agent you use must be installed separately and logged in** (Codex or an OpenCode server). OpenCode integration baseline: **1.19.3**. The tested integration is Codex CLI **0.163.0**. Run `doctor` to check other versions; the app-server interface is experimental and older versions may lack the required methods. `doctor` reports `compatible`, the failing check, and `automatic_sending: blocked` when a method or response field changed. It never submits a continuation.
 
 | Platform | Archive | Open |
 | --- | --- | --- |
@@ -40,18 +40,19 @@ Download the archive matching your OS and processor from [Releases](https://gith
 | macOS 27, Apple Silicon | `*-macos-arm64.tar.gz` | Extract, run `sh install.sh`, open `~/Applications/AutoResumeAgent.app` |
 | macOS 27, Intel | `*-macos-x64.tar.gz` | Same procedure, Intel build |
 
-These are target platforms. See [the actual verification matrix](docs/TESTING.md) for what has been tested. The bundles are unsigned and not notarized. Use your OS's normal approval flow if it requires one; the installer does not change security settings. macOS CLI is installed in `~/.local/bin`; add that directory to PATH if necessary.
+These are target platforms. See [the compatibility matrix](docs/COMPATIBILITY.md) and [dated test evidence](docs/TESTING.md) for what has actually been tested. The bundles are unsigned and not notarized; see [signing](docs/SIGNING.md) for the optional maintainer setup. Use your OS's normal approval flow if it requires one; the installer does not change security settings. macOS CLI is installed in `~/.local/bin`; add that directory to PATH if necessary.
 
 Verify the archive's SHA-256 against its adjacent `.sha256` file before extracting:
 
 ```powershell
 # Windows
-Get-FileHash .\AutoResumeAgent-v0.5.1-windows-x64.zip -Algorithm SHA256
+Get-FileHash .\AutoResumeAgent-v0.5.2-windows-x64.zip -Algorithm SHA256
 ```
 ```sh
 # Ubuntu / macOS
-sha256sum AutoResumeAgent-v0.5.1-linux-x64.tar.gz
-shasum -a 256 AutoResumeAgent-v0.5.1-macos-arm64.tar.gz
+sha256sum AutoResumeAgent-v0.5.2-linux-x64.tar.gz
+shasum -a 256 AutoResumeAgent-v0.5.2-macos-arm64.tar.gz
+shasum -a 256 AutoResumeAgent-v0.5.2-macos-x64.tar.gz
 ```
 
 Windows installs to `%LOCALAPPDATA%/Programs/AutoResumeAgent`. Run `Install.cmd` from each new release to update the same location and shortcuts; settings and monitored sessions stay in `%LOCALAPPDATA%/AutoResumeAgent`. `Launch.cmd` remains available for portable use.
@@ -210,7 +211,7 @@ python scripts/make_icons.py
 python scripts/build.py
 ```
 
-Build on the target OS/architecture. GitHub Actions tests and builds native Windows x64, Linux x64, macOS arm64 and macOS x64 bundles. A version tag publishes a **prerelease** with archives and checksums after every build passes. Read [release notes](docs/RELEASE_NOTES.md) and [test evidence](docs/TESTING.md).
+Build on the target OS/architecture. GitHub Actions tests and builds native Windows x64, Linux x64, macOS arm64 and macOS x64 bundles. A version tag publishes a **prerelease** with archives and checksums after every build passes. Read [release notes](docs/RELEASE_NOTES.md), [test evidence](docs/TESTING.md), the [release checklist](docs/RELEASE_CHECKLIST.md), and [contribution guide](CONTRIBUTING.md). Security reports use [SECURITY.md](SECURITY.md); upgrade and rollback steps are in [UPGRADING.md](docs/UPGRADING.md).
 
 ## Acknowledgments and license
 
