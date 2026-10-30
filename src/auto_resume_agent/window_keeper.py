@@ -43,9 +43,9 @@ def tick(store, backend, snapshot, now):
     if observed is None:
         return {**state, "reason": "keeper_no_window"}
     due = state["next_at"]
-    # Before expiry, follow a changed server deadline (e.g. an account reset).
-    # Once due, retain its identity even if the next snapshot already moved ahead.
-    if not numeric(due) or (now < due and observed != due):
+    # A future server deadline proves a window is already active. Follow it
+    # instead of creating a helper for an expired deadline.
+    if not numeric(due) or (observed > now and observed != due):
         due = observed
         store.set(key(store, "due"), due)
     state["next_at"] = due + 2

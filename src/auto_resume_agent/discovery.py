@@ -25,6 +25,7 @@ class QuotaDiscovery:
                 raise BackendError("codex_response_incompatible")
             if any(not isinstance(row, dict) for row in page.get("data", [])):
                 raise BackendError("codex_response_incompatible")
+            store.remember_sessions(page.get("data", []))
             rows = [r for r in page.get("data", []) if valid_id(r.get("id"))
                     and (r.get("updatedAt") is None or self.seen.get(r["id"]) != r["updatedAt"])]
             fresh = {r["id"]: r for r in rows}

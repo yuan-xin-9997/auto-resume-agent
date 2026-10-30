@@ -37,6 +37,7 @@ for _locale, _values in TRANSLATIONS.items():
 TRANSLATIONS = {key: dict(zip(EN, values)) for key, values in TRANSLATIONS.items()}
 
 EXTRA = {
+    "search_sessions": ("Search loaded sessions: name, UUID or workspace", "检索已加载会话：名称、UUID 或工作目录", "搜尋已載入對話：名稱、UUID 或工作目錄", "読込済みセッションを検索：名前・UUID・作業フォルダー", "불러온 세션 검색: 이름, UUID 또는 작업 폴더"),
     "auto_watch_hint": ("Quota-exhausted Codex sessions are watched automatically; select other sessions manually. Enable recovery and keep original sessions open.", "额度耗尽未完成的 Codex 会话会自动加入监控；其他会话可手动选择。请开启自动恢复并保持原会话打开。", "額度耗盡未完成的 Codex 對話會自動加入監控；其他對話可手動選取。請啟用自動恢復並保持原對話開啟。", "残量不足の Codex セッションは自動監視されます。他は手動選択できます。再開を有効にし、元のセッションを開いてください。", "한도 소진 Codex 세션은 자동 감시됩니다. 다른 세션은 직접 선택하세요. 복구를 켜고 원래 세션을 열어 두세요."),
     "auto_watch_toggle": ("Automatically watch quota-exhausted Codex sessions (default on)", "自动监控因额度耗尽未完成的 Codex 会话（默认开启）", "自動監控因額度耗盡未完成的 Codex 對話（預設開啟）", "残量不足で未完了の Codex セッションを自動監視（既定 ON）", "한도 소진으로 중단된 Codex 세션 자동 감시 (기본 켜짐)"),
     "auto_watched": ("Automatically watched after quota exhaustion", "额度耗尽，已自动加入监控", "額度耗盡，已自動加入監控", "残量不足のため自動監視に追加", "한도 소진으로 자동 감시에 추가됨"),

@@ -46,13 +46,13 @@ Verify the archive's SHA-256 against its adjacent `.sha256` file before extracti
 
 ```powershell
 # Windows
-Get-FileHash .\AutoResumeAgent-v0.5.2-windows-x64.zip -Algorithm SHA256
+Get-FileHash .\AutoResumeAgent-v0.5.3-windows-x64.zip -Algorithm SHA256
 ```
 ```sh
 # Ubuntu / macOS
-sha256sum AutoResumeAgent-v0.5.2-linux-x64.tar.gz
-shasum -a 256 AutoResumeAgent-v0.5.2-macos-arm64.tar.gz
-shasum -a 256 AutoResumeAgent-v0.5.2-macos-x64.tar.gz
+sha256sum AutoResumeAgent-v0.5.3-linux-x64.tar.gz
+shasum -a 256 AutoResumeAgent-v0.5.3-macos-arm64.tar.gz
+shasum -a 256 AutoResumeAgent-v0.5.3-macos-x64.tar.gz
 ```
 
 Windows installs to `%LOCALAPPDATA%/Programs/AutoResumeAgent`. Run `Install.cmd` from each new release to update the same location and shortcuts; settings and monitored sessions stay in `%LOCALAPPDATA%/AutoResumeAgent`. `Launch.cmd` remains available for portable use.
@@ -133,6 +133,10 @@ auto-resume-agent watch                # Run the monitor (recovery may remain pa
 auto-resume-agent window-keeper off    # Stop future window-start submissions
 ```
 
+If the server already reports a new active five-hour window (a future reset time), the helper skips the expired boundary and follows that new deadline.
+
+The session search field filters loaded sessions by name, UUID or workspace, ignoring case. Load more to include older sessions. Selection actions apply only to visible checked sessions. Activity shows cached session names alongside UUIDs; names survive restart.
+
 The schedule uses the **reported reset time**, not five hours after app launch. If that time is already past when enabled, the first eligible check can send immediately. Before sending, the monitor rechecks quota: unknown availability, exhausted weekly/other exposed limits or account spending blocks cause it to wait. Only a known Codex primary window with duration 300 minutes is eligible. A two-second boundary grace and normal monitoring/network delays apply.
 
 Each boundary is durably claimed before creating a thread, so restart, timeout, disabling/re-enabling, or ambiguous delivery never blindly repeats it. At least five hours separate attempts; waking after multiple missed windows causes one attempt, not a burst. The next cycle requires a newly reported future reset time. Turning the checkbox off is saved immediately and checked again before creating the helper and before starting its turn; an already submitted request cannot be withdrawn by that toggle.
@@ -190,7 +194,7 @@ Polling deadlines are targets, not real-time guarantees: system sleep, slow Code
 
 No telemetry, analytics or update network client. Authentication and requests to OpenAI are handled by your installed Codex. Auto Resume Agent's app-server client only invokes initialization, usage and thread metadata methods; it cannot approve tools or start turns. Recovery invokes the separate official `codex queue` command.
 
-Own SQLite state stores settings, watched UUIDs, numeric quota snapshots, classified recovery records, optional window-start claims/helper UUIDs, and bounded event codes. It does not persist prompts, transcripts, raw errors, access tokens or API keys. Session labels/workspace paths are shown in memory in the GUI and printed by the `sessions` CLI command. Treat your own redirected CLI output accordingly.
+Own SQLite state stores settings, watched UUIDs, numeric quota snapshots, classified recovery records, optional window-start claims/helper UUIDs, and bounded event codes. It does not persist prompts, transcripts, raw errors, access tokens or API keys. Session names are cached locally for activity history; workspace paths are shown in memory in the GUI. Both are printed by the `sessions` CLI command. Treat your own redirected CLI output accordingly.
 
 For local troubleshooting only, setting `ARA_DEBUG_LOG` to a file path opts into saving Codex app-server stderr there. That optional raw diagnostic file can contain private paths or error details; review it before sharing. It is off by default and is separate from the normal state database.
 

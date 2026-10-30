@@ -59,6 +59,7 @@ class Engine:
                 metadata = self.backend.thread(tid)
                 if not isinstance(metadata, dict):
                     raise ValueError("metadata")
+                self.store.remember_sessions([{**metadata, "id": tid}])
                 # Archived, imported, and subagent threads never receive automatic messages.
                 source = metadata.get("source")
                 if metadata.get("archived") or not isinstance(source, str) or source not in ("cli", "vscode", "appServer", "exec", "opencode"):

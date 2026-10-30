@@ -249,6 +249,10 @@ class Window(QMainWindow):
         box.addWidget(self.label("sessions", "section"))
         self.session_hint = self.label("hint", "muted", wrap=True)
         box.addWidget(self.session_hint)
+        self.search = QLineEdit()
+        self.search.setClearButtonEnabled(True)
+        self.search.textChanged.connect(self.render)
+        box.addWidget(self.search)
         buttons = QHBoxLayout()
         self.select_all = QCheckBox(self.text("select_all"))
         self.translated.append((self.select_all, "select_all"))
@@ -391,8 +395,13 @@ class Window(QMainWindow):
         if self.worker and self.cursor:
             self.worker.request("threads", self.cursor)
 
+    def visible_rows(self):
+        query = self.search.text().strip().casefold()
+        return [row for row in self.rows if not query or query in " ".join(
+            str(row.get(key) or "") for key in ("name", "id", "cwd")).casefold()]
+
     def selected(self):
-        return [row["id"] for row in self.rows if row["id"] in self.checked_ids]
+        return [row["id"] for row in self.visible_rows() if row["id"] in self.checked_ids]
 
     def selection_changed(self, item):
         if item.column() != 0:
@@ -405,16 +414,21 @@ class Window(QMainWindow):
         self.selection_controls()
 
     def check_all(self, checked):
-        self.checked_ids = {row["id"] for row in self.rows} if checked else set()
+        visible = {row["id"] for row in self.visible_rows()}
+        if checked:
+            self.checked_ids.update(visible)
+        else:
+            self.checked_ids.difference_update(visible)
         self.render()
 
     def selection_controls(self):
         self.select_all.blockSignals(True)
-        self.select_all.setChecked(bool(self.rows) and self.checked_ids == {row["id"] for row in self.rows})
+        visible = {row["id"] for row in self.visible_rows()}
+        self.select_all.setChecked(bool(visible) and visible <= self.checked_ids)
         self.select_all.blockSignals(False)
-        self.select_all.setEnabled(bool(self.rows))
-        self.watch_button.setEnabled(bool(self.checked_ids))
-        self.unwatch_button.setEnabled(bool(self.checked_ids))
+        self.select_all.setEnabled(bool(visible))
+        self.watch_button.setEnabled(bool(self.selected()))
+        self.unwatch_button.setEnabled(bool(self.selected()))
 
     def watch_selected(self):
         for tid in self.selected():
@@ -473,6 +487,7 @@ class Window(QMainWindow):
             self.render()
 
     def render(self):
+        self.search.setPlaceholderText(self.text("search_sessions"))
         self.session_hint.setText(self.text("hint"))
         enabled = self.store.get("enabled", False)
         self.badge.setText(self.text("monitoring" if enabled else "paused"))
@@ -541,8 +556,10 @@ class Window(QMainWindow):
         # Checkbox state follows IDs, never row positions or transient row highlights.
         self.checked_ids.intersection_update(row["id"] for row in self.rows)
         self.table.blockSignals(True)
-        self.table.setRowCount(len(self.rows))
-        for index, row in enumerate(self.rows):
+        self.store.remember_sessions(self.rows)
+        rows = self.visible_rows()
+        self.table.setRowCount(len(rows))
+        for index, row in enumerate(rows):
             tid = row["id"]
             record = next((r for r in records if r["thread_id"] == tid), None)
             # A cancelled historical recovery must not hide an active watch.
@@ -578,9 +595,15 @@ class Window(QMainWindow):
         events = self.store.events()
         self.events.setHorizontalHeaderLabels([self.text(k) for k in ("time", "thread", "event")])
         self.events.setRowCount(len(events))
+        names = self.store.session_names()
         for index, event in enumerate(events):
-            for col, text in enumerate((timestamp(event["time"]), event["thread_id"] or "—", self.text(event["code"]))):
-                self.events.setItem(index, col, QTableWidgetItem(text))
+            tid = event["thread_id"]
+            title = names.get(tid)
+            session = title + "\n" + tid if title else tid or "—"
+            for col, text in enumerate((timestamp(event["time"]), session, self.text(event["code"]))):
+                item = QTableWidgetItem(text)
+                item.setToolTip(text)
+                self.events.setItem(index, col, item)
 
     def closeEvent(self, event):
         if self.worker:

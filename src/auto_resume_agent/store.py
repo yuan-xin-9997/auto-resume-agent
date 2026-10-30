@@ -32,6 +32,8 @@ class Store:
                     id TEXT PRIMARY KEY,thread_id TEXT NOT NULL,turn_id TEXT NOT NULL,
                     kind TEXT NOT NULL,state TEXT NOT NULL,due REAL NOT NULL,
                     created REAL NOT NULL,submitted REAL,detail TEXT NOT NULL DEFAULT '');
+                CREATE TABLE IF NOT EXISTS session_names (
+                    home TEXT NOT NULL,id TEXT NOT NULL,name TEXT NOT NULL,PRIMARY KEY(home,id));
                 CREATE TABLE IF NOT EXISTS events (
                     id INTEGER PRIMARY KEY,time REAL NOT NULL,thread_id TEXT,code TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS window_starts (
@@ -106,6 +108,17 @@ class Store:
         with self.db() as db:
             db.execute("INSERT INTO events(time,thread_id,code) VALUES (?,?,?)", (time.time(), thread_id, code))
             db.execute("DELETE FROM events WHERE id NOT IN (SELECT id FROM events ORDER BY id DESC LIMIT 1000)")
+
+    def remember_sessions(self, rows):
+        values = [(self.source, row["id"], row["name"]) for row in rows
+                  if row.get("id") and isinstance(row.get("name"), str) and row["name"].strip()]
+        if values:
+            with self.db() as db:
+                db.executemany("INSERT INTO session_names VALUES (?,?,?) ON CONFLICT(home,id) DO UPDATE SET name=excluded.name WHERE name!=excluded.name", values)
+
+    def session_names(self):
+        with self.db() as db:
+            return {r["id"]: r["name"] for r in db.execute("SELECT id,name FROM session_names WHERE home=?", (self.source,))}
 
     def events(self):
         with self.db() as db:

@@ -63,11 +63,16 @@ def test_unused_quota_starts_exactly_one_new_session_at_boundary(system):
     assert len(backend.started) == 1
 
 
-def test_new_snapshot_moving_ahead_at_expiry_does_not_skip_request(system):
+def test_already_started_server_window_skips_helper(system):
     store, backend = system
     keeper.set_enabled(store, True)
     keeper.tick(store, backend, quota(), NOW)
     keeper.tick(store, backend, quota(RESET+keeper.HOURS), RESET+2)
+    assert not backend.started
+    assert keeper.status(store)["next_at"] == RESET + keeper.HOURS
+    keeper.tick(Store(store.root), backend, quota(RESET+keeper.HOURS), RESET+100)
+    assert not backend.started
+    keeper.tick(store, backend, quota(RESET+keeper.HOURS), RESET+keeper.HOURS+2)
     assert len(backend.started) == 1
 
 

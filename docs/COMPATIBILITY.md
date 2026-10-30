@@ -23,14 +23,14 @@ its quota is shown as unknown and retryable API errors use bounded backoff.
 | Packaged startup | The frozen CLI and GUI start on the built architecture; bundled licenses are present | GitHub Actions on Windows x64, Linux x64, macOS arm64 and macOS x64; local `python scripts/build.py` and smoke commands |
 | Real platform recovery | A real agent accepted and executed a continuation in an isolated session | Historical v0.2.0 OpenCode 1.19.3 check with an isolated server and local fixture provider; historical v0.4.4 Codex queue/helper checks. These are not re-run by the automated suite. |
 
-## v0.5.2 — version consistency
+## v0.5.3 — version consistency
 
 | Item | Value |
 | --- | --- |
-| Python package version | `0.5.2` (`pyproject.toml`, `auto_resume_agent.__version__`) |
-| Windows archive | `AutoResumeAgent-v0.5.2-windows-x64.zip` |
-| Linux archive | `AutoResumeAgent-v0.5.2-linux-x64.tar.gz` |
-| macOS archives | `AutoResumeAgent-v0.5.2-macos-arm64.tar.gz`, `AutoResumeAgent-v0.5.2-macos-x64.tar.gz` |
+| Python package version | `0.5.3` (`pyproject.toml`, `auto_resume_agent.__version__`) |
+| Windows archive | `AutoResumeAgent-v0.5.3-windows-x64.zip` |
+| Linux archive | `AutoResumeAgent-v0.5.3-linux-x64.tar.gz` |
+| macOS archives | `AutoResumeAgent-v0.5.3-macos-arm64.tar.gz`, `AutoResumeAgent-v0.5.3-macos-x64.tar.gz` |
 | Checksums | Adjacent `.sha256` files |
 | Signing | Unsigned and not notarized by default; see [SIGNING.md](SIGNING.md) |
 

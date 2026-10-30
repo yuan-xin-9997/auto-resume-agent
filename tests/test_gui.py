@@ -164,3 +164,34 @@ def test_quota_duration_labels_all_languages():
     for language in LANGUAGES:
         assert "300" not in duration_label(300, language)
         assert "10080" not in duration_label(10080, language)
+
+def test_session_search_and_persistent_activity_names(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    store = Store(tmp_path)
+    window = Window(store, start_worker=False)
+    a, b = str(uuid.uuid4()), str(uuid.uuid4())
+    window.rows = [{"id": a, "name": "Alpha report", "cwd": "/work/Research"},
+                   {"id": b, "name": "Beta", "cwd": "/work/Other"}]
+    store.event(a, "detected")
+    window.render()
+    window.select_all.setChecked(True)
+    window.search.setText("ALPHA")
+    assert window.table.rowCount() == 1
+    assert window.selected() == [a]
+    window.watch_selected()
+    assert [r['id'] for r in store.watched()] == [a]
+    window.select_all.setChecked(False)
+    assert b in window.checked_ids and a not in window.checked_ids
+    assert not window.watch_button.isEnabled()
+    window.search.setText("research")
+    assert window.table.item(0, 1).data(Qt.ItemDataRole.UserRole) == a
+    window.search.setText(b)
+    assert window.table.rowCount() == 1
+    assert window.selected() == [b]
+    window.search.clear()
+    assert window.table.rowCount() == 2
+    assert window.events.item(0, 1).text() == "Alpha report\n" + a
+    window.close()
+    reopened = Window(Store(tmp_path), start_worker=False)
+    assert reopened.events.item(0, 1).text() == "Alpha report\n" + a
+    reopened.close()
