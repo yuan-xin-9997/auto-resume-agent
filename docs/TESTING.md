@@ -1,6 +1,6 @@
 # Verification record
 
-## v0.5.3 — compatibility guardrails and release preparation (2026-10-28)
+## v0.5.2 — compatibility guardrails and release preparation (2026-10-28)
 
 - 123 automated tests pass on the development Windows 11 host. The suite uses
   synthetic sessions, deterministic quota/error replies, temporary state
@@ -17,8 +17,8 @@
   `tests/test_release_metadata.py` keeps the package version, archive names,
   release notes, compatibility matrix and test evidence aligned.
 - Local Windows x64 packaging passed on 2026-10-28: `python scripts/build.py`
-  produced `AutoResumeAgent-v0.5.3-windows-x64.zip`; the bundled CLI reported
-  `0.5.3`; the bundled GUI passed `--smoke-test` with
+  produced `AutoResumeAgent-v0.5.2-windows-x64.zip`; the bundled CLI reported
+  `0.5.2`; the bundled GUI passed `--smoke-test` with
   `QT_QPA_PLATFORM=offscreen`; the archive contained the license, notices,
   bundled license directory, CLI/GUI executables and installer; and the adjacent
   `.sha256` matched. This is **packaged startup**, not a real recovery. The build
@@ -28,7 +28,7 @@
   [COMPATIBILITY.md](COMPATIBILITY.md): simulated tests, packaged startup, and
   real-platform recovery are not interchangeable. This change did not perform a
   new real Codex/OpenCode recovery, production quota exhaustion, code signing,
-  or notarization. The v0.5.3 prerelease is built and published by CI; the
+  or notarization. The v0.5.2 prerelease is built and published by CI; the
   historical real-platform checks below remain the only real-recovery evidence.
 
 ## v0.3.0 — optional Codex window starter (2026-10-26)

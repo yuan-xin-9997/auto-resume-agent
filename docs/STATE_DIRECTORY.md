@@ -42,3 +42,5 @@ verified.
 Removing the state directory discards settings, watched sessions, cancellations,
 and delivery claims. It does not delete Codex/OpenCode data. See
 [UPGRADING.md](UPGRADING.md) for upgrade and rollback steps.
+
+Session names are also cached in the local `session_names` table for activity labels after restart. Names can contain personal information; the cache is part of state backups. Workspace paths are not added to this cache.
