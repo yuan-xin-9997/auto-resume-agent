@@ -128,3 +128,8 @@ Automatic watching does not prove execution: Codex queue acceptance still depend
 ## v0.5.3 — active windows, session search and activity names
 
 124 automated tests pass on the development Windows PC. Regression coverage includes skipping helpers for an already-active server window across restart, sending at its next expired boundary, case-insensitive name/UUID/workspace search, hidden selections excluded from bulk actions, and activity names surviving restart. No real model request was sent to test the new skip logic.
+
+
+## v0.5.4 — monitoring policy and wake recovery (2026-10-31)
+
+131 automated tests pass locally. Coverage includes active-session adoption, three interrupted sessions waiting for primary and weekly quota then each receiving one continuation, idle available quota sending nothing, exhausted idle quota arming a helper, pending recovery suppressing that helper, a simulated wake closing the old transport and reading fresh quota, short wall-clock waits escaping a long simulated sleep, reduced upstream polling while blocked, independent persistent CLI/GUI intervals, and new-state defaults preserving existing saved pauses. No production task is sent a continuation for testing. Actual machine suspend/resume and proxy bytes on the wire are not measured by these tests.

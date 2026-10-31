@@ -41,6 +41,7 @@ class Backend:
 
 def test_default_discovery_watches_without_enabling_recovery(tmp_path):
     store, backend = Store(tmp_path), Backend()
+    store.set("enabled", False)
     engine = Engine(store, backend, lambda: NOW)
     engine.tick()
     assert [r["id"] for r in store.watched()] == [backend.rows[0]["id"]]
@@ -55,7 +56,7 @@ def test_default_discovery_watches_without_enabling_recovery(tmp_path):
     assert backend.sent == [backend.rows[0]["id"]]
 
 
-@pytest.mark.parametrize("case", ["completed", "interrupted", "inProgress", "network", "archived", "subagent", "helper"])
+@pytest.mark.parametrize("case", ["completed", "interrupted", "network", "archived", "subagent", "helper"])
 def test_only_latest_quota_failure_is_discovered(tmp_path, case):
     store, backend = Store(tmp_path), Backend()
     row = backend.rows[0]

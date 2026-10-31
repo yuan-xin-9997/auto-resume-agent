@@ -78,3 +78,17 @@ def delay(attempt):
 def next_delay(now, due, normal=5):
     """Wall clock deadlines survive sleep; no long fixed polling interval."""
     return max(0.25, min(normal, due - now)) if due is not None else normal
+
+
+def wait_for_check(stop, seconds, wake=None, clock=None):
+    import time
+    clock = clock or time.time
+    deadline = clock() + seconds
+    event = wake or stop
+    # Short waits use wall time so a sleep/wake cycle cannot leave a long stale wait.
+    while not stop.is_set():
+        remaining = deadline - clock()
+        if remaining <= 0 or event.wait(min(1, remaining)):
+            break
+    if wake:
+        wake.clear()

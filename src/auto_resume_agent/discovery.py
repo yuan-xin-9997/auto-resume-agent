@@ -33,7 +33,7 @@ class QuotaDiscovery:
             if not head or self.cursor is None:
                 self.cursor = page.get("nextCursor")
             if head:
-                self.head_at = now + 30
+                self.head_at = now + store.interval()
         watched = {r["id"] for r in store.watched()}
         with store.db() as db:
             excluded = {r[0] for r in db.execute("SELECT id FROM watch_exclusions WHERE home=?", (store.source,))}
@@ -53,10 +53,12 @@ class QuotaDiscovery:
                 continue
             try:
                 turn = backend.latest(tid)
-                if (isinstance(turn, dict) and category(turn) == "usage_limit" and valid_id(turn.get("id"))
-                        and numeric(turn.get("completedAt")) and store.get("auto_watch_quota", True)):
+                if (isinstance(turn, dict) and valid_id(turn.get("id"))
+                        and (turn.get("status") == "inProgress" or
+                             (category(turn) == "usage_limit" and numeric(turn.get("completedAt"))))
+                        and store.get("auto_watch_quota", True)):
                     if store.watch(tid, automatic=True):
-                        store.event(tid, "auto_watched")
+                        store.event(tid, "auto_running" if turn.get("status") == "inProgress" else "auto_watched")
                 self.seen[tid] = row.get("updatedAt")
             except BackendError as error:
                 if is_compatibility_error(error):

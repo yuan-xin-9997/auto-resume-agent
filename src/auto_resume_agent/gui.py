@@ -9,8 +9,9 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QIcon, QColor
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QComboBox, QLineEdit, QTableWidget, QTableWidgetItem,
-    QHeaderView, QAbstractItemView, QStackedWidget, QFrame, QProgressBar, QMessageBox, QCheckBox)
+    QHeaderView, QAbstractItemView, QStackedWidget, QFrame, QProgressBar, QMessageBox, QCheckBox, QSpinBox, QScrollArea)
 
+from .model import wait_for_check
 from .engine import Engine
 from .i18n import LANGUAGES, tr, duration_label
 from .protocol import Codex, BackendError, compatibility_code
@@ -106,9 +107,8 @@ class Worker:
                 if backend:
                     backend.close()
                 backend, engine = None, None
-                wait = 10
-            self.wake.wait(wait)
-            self.wake.clear()
+                wait = selected_store(self.store, config[0]).interval()
+            wait_for_check(self.stop, wait, self.wake)
         if backend:
             backend.close()
 
@@ -197,12 +197,19 @@ class Window(QMainWindow):
         self.translated.append((button, key))
         return button
 
-    def page(self):
+    def page(self, scroll=False):
         page = QWidget()
         box = QVBoxLayout(page)
         box.setContentsMargins(30, 28, 30, 25)
         box.setSpacing(17)
-        self.pages.addWidget(page)
+        if scroll:
+            area = QScrollArea()
+            area.setWidgetResizable(True)
+            area.setFrameShape(QFrame.Shape.NoFrame)
+            area.setWidget(page)
+            self.pages.addWidget(area)
+        else:
+            self.pages.addWidget(page)
         return box
 
     def build_dashboard(self):
@@ -300,7 +307,7 @@ class Window(QMainWindow):
         box.addWidget(self.events)
 
     def build_settings(self):
-        box = self.page()
+        box = self.page(scroll=True)
         box.addWidget(self.label("settings", "title"))
         box.addWidget(self.label("language", "section"))
         self.languages = QComboBox()
@@ -309,6 +316,15 @@ class Window(QMainWindow):
         self.languages.setCurrentIndex(max(0, self.languages.findData(self.language)))
         self.languages.currentIndexChanged.connect(self.change_language)
         box.addWidget(self.languages)
+        self.intervals = {}
+        for agent in ("codex", "opencode"):
+            box.addWidget(self.label(agent + "_interval", "section"))
+            field = QSpinBox()
+            field.setRange(5, 3600)
+            field.setValue(self.base_store.get(agent + "_interval", 30))
+            field.valueChanged.connect(lambda value, a=agent: self.change_interval(a, value))
+            self.intervals[agent] = field
+            box.addWidget(field)
         self.auto_watch = QCheckBox(self.text("auto_watch_toggle"))
         self.translated.append((self.auto_watch, "auto_watch_toggle"))
         self.auto_watch.setChecked(self.base_store.get("auto_watch_quota", True))
@@ -342,6 +358,11 @@ class Window(QMainWindow):
         for widget, key in self.translated:
             widget.setText(self.text(key))
         self.render()
+
+    def change_interval(self, agent, value):
+        self.base_store.set(agent + "_interval", value)
+        if self.worker:
+            self.worker.request("refresh")
 
     def toggle_auto_watch(self, checked):
         self.base_store.set("auto_watch_quota", checked)
@@ -503,7 +524,7 @@ class Window(QMainWindow):
             detail = self.text("keeper_independent")
             current = self.latest_tick.get("window_keeper") or {}
             reason = current.get("reason")
-            if reason in ("keeper_waiting_update", "keeper_waiting_quota", "keeper_no_window"):
+            if reason in ("keeper_waiting_update", "keeper_waiting_quota", "keeper_no_window", "keeper_recovery_first", "keeper_not_exhausted"):
                 detail += " · " + self.text(reason)
             elif keeper.get("next_at"):
                 detail += " · " + self.text("keeper_next") + " " + timestamp(keeper["next_at"])

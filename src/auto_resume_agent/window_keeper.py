@@ -35,13 +35,17 @@ def reset_at(snapshot):
     return value if numeric(value) and 946684800 <= value <= 4102444800 else None
 
 
-def tick(store, backend, snapshot, now):
+def tick(store, backend, snapshot, now, has_pending=False):
     state = status(store)
     if not state["enabled"]:
         return state
     observed = reset_at(snapshot)
     if observed is None:
         return {**state, "reason": "keeper_no_window"}
+    primary = next(w for w in snapshot["windows"] if w.get("bucket") == "codex"
+                   and w.get("window") == "primary" and w.get("minutes") == 300)
+    if numeric(primary.get("used_percent")) and primary["used_percent"] >= 100:
+        store.set(key(store, "exhausted"), observed)
     due = state["next_at"]
     # A future server deadline proves a window is already active. Follow it
     # instead of creating a helper for an expired deadline.
@@ -51,6 +55,10 @@ def tick(store, backend, snapshot, now):
     state["next_at"] = due + 2
     if now < due + 2:
         return {**state, "reason": "keeper_waiting"}
+    if has_pending:
+        return {**state, "reason": "keeper_recovery_first"}
+    if store.get(key(store, "exhausted")) != due:
+        return {**state, "reason": "keeper_not_exhausted"}
     with store.db() as db:
         attempt = db.execute("SELECT state FROM window_starts WHERE home=? AND reset_at=?", (store.source, due)).fetchone()
     if attempt:

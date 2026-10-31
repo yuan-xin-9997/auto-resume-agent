@@ -17,6 +17,7 @@ class Engine:
         self.snapshot = {"available": None, "windows": [], "reset_at": None}
         self.last_usage = 0
         self.discovery = QuotaDiscovery()
+        self.last_tick = None
 
     def tick(self):
         with engine_lock(self.store.root) as owned:
@@ -26,13 +27,27 @@ class Engine:
 
     def _tick(self):
         now = self.clock()
+        interval = self.store.interval()
+        if self.last_tick is not None and (now - self.last_tick > max(60, interval * 2) or now < self.last_tick):
+            # Resume with a fresh transport and quota, not a pre-sleep connection.
+            close = getattr(self.backend, "close", None)
+            if close:
+                close()
+            self.last_usage = 0
+            self.discovery.head_at = 0
+        self.last_tick = now
         enabled = self.store.get("enabled", False)
         records = self.store.records()
         due = min((r["due"] for r in records if r["state"] == "waiting"), default=None)
         keeper = window_keeper.status(self.store) if self.store.agent == "codex" else None
         keeper_due = keeper.get("next_at") if keeper and keeper["enabled"] else None
+        usage_interval = interval
+        reset = self.snapshot.get("reset_at")
+        if self.snapshot.get("available") is False and numeric(reset) and reset > now:
+            # Known exhausted quota needs no upstream poll every cycle; still check locally.
+            usage_interval = max(interval, min(300, reset - self.last_usage))
         # Re-query when a deadline arrives, including the first tick after system wake.
-        if (now - self.last_usage >= 30 or (due is not None and due <= now)
+        if (now - self.last_usage >= usage_interval or (due is not None and due <= now)
                 or (numeric(keeper_due) and now >= keeper_due+2 and self.last_usage < keeper_due+2)):
             try:
                 self.snapshot = snapshot(self.backend)
@@ -53,6 +68,7 @@ class Engine:
             discovery_error = True
         watched = self.store.watched()
         problems = []
+        quota_interrupted = False
         for watch in watched:
             tid = watch["id"]
             try:
@@ -73,6 +89,7 @@ class Engine:
                     continue
                 self._reconcile(tid, turn, records)
                 kind = category(turn)
+                quota_interrupted |= kind == "usage_limit"
                 completed = turn.get("completedAt")
                 # Explicitly watching a session includes its latest retryable failure,
                 # even when the user adds it more than a minute after the interruption.
@@ -106,13 +123,15 @@ class Engine:
                 problems.append(tid)
         pending = [r["due"] for r in self.store.records() if r["state"] == "waiting" and r["due"] > self.clock()]
         if keeper is not None:
-            keeper = window_keeper.tick(self.store, self.backend, self.snapshot, self.clock())
+            keeper = window_keeper.tick(self.store, self.backend, self.snapshot, self.clock(),
+                                        has_pending=quota_interrupted or bool(problems) or discovery_error
+                                        or bool(self.discovery.pending) or bool(self.discovery.cursor))
             if keeper["enabled"] and numeric(keeper.get("next_at")) and keeper["next_at"] > self.clock():
                 pending.append(keeper["next_at"])
         return {"usage": self.snapshot, "enabled": enabled, "watched": len(watched),
                 "window_keeper": keeper,
                 "error": "thread_read_failed" if problems or discovery_error else None,
-                "delay": next_delay(self.clock(), min(pending) if pending else None)}
+                "delay": next_delay(self.clock(), min(pending) if pending else None, normal=interval)}
 
     def _blocked(self, error):
         # An adapter contract change is not a per-session hiccup: do not send
@@ -120,7 +139,7 @@ class Engine:
         return {"usage": self.snapshot, "enabled": self.store.get("enabled", False),
                 "watched": len(self.store.watched()),
                 "window_keeper": window_keeper.status(self.store) if self.store.agent == "codex" else None,
-                "error": str(error), "delay": 10}
+                "error": str(error), "delay": self.store.interval()}
 
     def _reconcile(self, tid, turn, records):
         for row in records:

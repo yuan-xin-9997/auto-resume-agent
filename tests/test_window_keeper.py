@@ -16,7 +16,7 @@ NOW = 1_800_000_000
 RESET = NOW + 100
 
 
-def quota(reset=RESET, used=23, available=True):
+def quota(reset=RESET, used=100, available=True):
     return {"available": available, "reset_at": None, "windows": [
         {"bucket": "codex", "window": "primary", "minutes": 300, "used_percent": used, "reset_at": reset}]}
 
@@ -47,11 +47,11 @@ def test_default_off_never_sends(system):
     assert not backend.started
 
 
-def test_unused_quota_starts_exactly_one_new_session_at_boundary(system):
+def test_exhausted_quota_starts_exactly_one_new_session_at_boundary(system):
     store, backend = system
     keeper.set_enabled(store, True)
-    keeper.tick(store, backend, quota(used=23), NOW)
-    keeper.tick(store, backend, quota(used=23), RESET+1)
+    keeper.tick(store, backend, quota(used=100), NOW)
+    keeper.tick(store, backend, quota(used=100), RESET+1)
     assert not backend.started
     keeper.tick(store, backend, quota(used=0), RESET+2)
     assert len(backend.started) == 1
@@ -164,13 +164,14 @@ def test_cli_opt_in_status_off_and_opencode_rejection(tmp_path, capsys):
 def test_engine_independent_from_recovery_and_deadline_refresh(tmp_path):
     store = Store(tmp_path)
     keeper.set_enabled(store, True)
+    store.set("enabled", False)
     class Fake(Backend):
         def __init__(self):
             super().__init__()
             self.reads = 0
         def usage(self):
             self.reads += 1
-            return {"rateLimits": {"primary": {"usedPercent": 20, "windowDurationMins": 300, "resetsAt": RESET}}}
+            return {"rateLimits": {"primary": {"usedPercent": 100 if self.reads == 1 else 0, "windowDurationMins": 300, "resetsAt": RESET}}}
     backend = Fake()
     engine = Engine(store, backend, lambda: RESET-1)
     engine.tick()

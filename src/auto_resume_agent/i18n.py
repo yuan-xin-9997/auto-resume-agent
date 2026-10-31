@@ -37,9 +37,15 @@ for _locale, _values in TRANSLATIONS.items():
 TRANSLATIONS = {key: dict(zip(EN, values)) for key, values in TRANSLATIONS.items()}
 
 EXTRA = {
+    "codex_interval": ("Codex check interval (seconds, saved immediately)", "Codex 检查间隔（秒，立即保存）", "Codex 檢查間隔（秒，立即儲存）", "Codex 確認間隔（秒、即時保存）", "Codex 확인 간격 (초, 즉시 저장)"),
+    "opencode_interval": ("OpenCode check interval (seconds, saved immediately)", "OpenCode 检查间隔（秒，立即保存）", "OpenCode 檢查間隔（秒，立即儲存）", "OpenCode 確認間隔（秒、即時保存）", "OpenCode 확인 간격 (초, 즉시 저장)"),
+    "auto_running": ("Running session added to monitoring", "运行中会话已加入监控", "執行中對話已加入監控", "実行中のセッションを監視に追加", "실행 중인 세션을 감시에 추가함"),
+    "keeper_recovery_first": ("Interrupted sessions take priority; no helper request", "优先恢复额度中断会话，不新建辅助会话", "優先恢復額度中斷對話，不建立輔助對話", "中断セッションの再開を優先", "중단된 세션 복구 우선"),
+    "keeper_not_exhausted": ("Quota was not exhausted; no helper needed", "额度未耗尽，无需新建辅助会话", "額度未耗盡，無需建立輔助對話", "残量があるため補助セッションは不要", "한도가 남아 있어 보조 세션 불필요"),
+
     "search_sessions": ("Search loaded sessions: name, UUID or workspace", "检索已加载会话：名称、UUID 或工作目录", "搜尋已載入對話：名稱、UUID 或工作目錄", "読込済みセッションを検索：名前・UUID・作業フォルダー", "불러온 세션 검색: 이름, UUID 또는 작업 폴더"),
-    "auto_watch_hint": ("Quota-exhausted Codex sessions are watched automatically; select other sessions manually. Enable recovery and keep original sessions open.", "额度耗尽未完成的 Codex 会话会自动加入监控；其他会话可手动选择。请开启自动恢复并保持原会话打开。", "額度耗盡未完成的 Codex 對話會自動加入監控；其他對話可手動選取。請啟用自動恢復並保持原對話開啟。", "残量不足の Codex セッションは自動監視されます。他は手動選択できます。再開を有効にし、元のセッションを開いてください。", "한도 소진 Codex 세션은 자동 감시됩니다. 다른 세션은 직접 선택하세요. 복구를 켜고 원래 세션을 열어 두세요."),
-    "auto_watch_toggle": ("Automatically watch quota-exhausted Codex sessions (default on)", "自动监控因额度耗尽未完成的 Codex 会话（默认开启）", "自動監控因額度耗盡未完成的 Codex 對話（預設開啟）", "残量不足で未完了の Codex セッションを自動監視（既定 ON）", "한도 소진으로 중단된 Codex 세션 자동 감시 (기본 켜짐)"),
+    "auto_watch_hint": ('Running and quota-interrupted Codex sessions are watched automatically. Enable recovery and keep original sessions open.', '运行中或因额度耗尽中断的 Codex 会话会自动加入监控。请开启自动恢复并保持原会话打开。', '執行中或額度耗盡中斷的 Codex 對話會自動監控。請啟用恢復並保持原對話開啟。', '実行中・残量不足の Codex セッションを自動監視します。再開を有効にし元のセッションを開いてください。', '실행 중 또는 한도 소진으로 중단된 Codex 세션 자동 감시. 복구를 켜고 원래 세션을 열어 두세요.'),
+    "auto_watch_toggle": ('Automatically watch running / quota-exhausted Codex sessions (default on)', '自动监控运行中或因额度耗尽中断的 Codex 会话（默认开启）', '自動監控執行中或額度耗盡中斷的 Codex 對話（預設開啟）', '実行中・残量不足の Codex セッションを自動監視（既定 ON）', '실행 중 / 한도 소진 Codex 세션 자동 감시 (기본 켜짐)'),
     "auto_watched": ("Automatically watched after quota exhaustion", "额度耗尽，已自动加入监控", "額度耗盡，已自動加入監控", "残量不足のため自動監視に追加", "한도 소진으로 자동 감시에 추가됨"),
     "codex_proxy": ("Codex HTTP(S) proxy (optional; e.g. http://127.0.0.1:7890)", "Codex HTTP(S) 代理（可选，如 http://127.0.0.1:7890）", "Codex HTTP(S) 代理（選填，如 http://127.0.0.1:7890）", "Codex HTTP(S) プロキシ（任意、例 http://127.0.0.1:7890）", "Codex HTTP(S) 프록시 (선택, 예: http://127.0.0.1:7890)"),
     "codex_invalid_proxy": ("Enter an HTTP(S) proxy origin with a port, without credentials, path or query.", "请输入带端口的 HTTP(S) 代理地址，不含凭据、路径和查询参数。", "請輸入含連接埠的 HTTP(S) 代理位址，不含憑證、路徑及查詢參數。", "ポート付きの HTTP(S) URL を入力してください。認証情報・パス・クエリは含めないでください。", "포트가 있는 HTTP(S) 주소를 입력하세요. 인증 정보, 경로, 쿼리는 제외하세요."),
@@ -49,9 +55,9 @@ EXTRA = {
     "select_all": ("Select all", "全选", "全選", "すべて選択", "모두 선택"),
     "hint": ("Tick sessions, click Watch selected, then enable recovery. Keep the original session open.", "勾选会话并点击监控，再开启自动恢复。请保持原会话打开。", "勾選對話並點擊監控，再開啟自動恢復。請保持原對話開啟。", "セッションにチェックして監視し、自動再開を有効にします。元のセッションを開いておいてください。", "세션을 체크해 감시한 뒤 자동 재개를 켜세요. 원래 세션을 열어 두세요."),
     "opencode_hint": ("Tick sessions, click Watch selected, then enable recovery. Keep the OpenCode server running.", "勾选会话并点击监控，再开启自动恢复。请保持 OpenCode 服务运行。", "勾選對話並點擊監控，再開啟自動恢復。請保持 OpenCode 服務執行。", "セッションにチェックして監視し、自動再開を有効にします。OpenCode サーバーを起動したままにしてください。", "세션을 체크해 감시한 뒤 자동 재개를 켜세요. OpenCode 서버를 실행 상태로 두세요."),
-    "keeper_toggle": ("Start each Codex 5-hour window with a new ‘回复 OK’ session (default off)", "每个 Codex 5 小时窗口新建会话发送“回复 OK”（默认关闭）", "每個 Codex 5 小時視窗建立對話傳送「回复 OK」（預設關閉）", "Codex の各 5 時間枠で新規セッションに「回复 OK」を送信（既定 OFF）", "Codex의 각 5시간 창에서 새 세션에 ‘回复 OK’ 전송 (기본 꺼짐)"),
+    "keeper_toggle": ('Start next exhausted Codex window when no recovery is pending (default off)', 'Codex 五小时额度耗尽且无待恢复任务时，启动下一窗口（默认关闭）', 'Codex 五小時額度耗盡且無待恢復任務時啟動下一視窗（預設關閉）', 'Codex 残量不足で再開待ちがない場合に次枠を開始（既定 OFF）', 'Codex 한도 소진 후 복구 대기가 없으면 다음 창 시작 (기본 꺼짐)'),
     "keeper_off": ("Off. No automatic window-start requests.", "已关闭，不会自动发送窗口启动请求。", "已關閉，不會自動傳送視窗啟動請求。", "OFF：枠開始の自動リクエストは送信しません。", "꺼짐: 창 시작 요청을 자동으로 보내지 않습니다."),
-    "keeper_independent": ("Independent of recovery; uses one normal request after the reported reset, even with unused quota.", "独立于会话恢复；即使额度未用完，也在服务端重置时间后消耗一次正常请求。", "獨立於對話恢復；即使額度未用完，也在伺服器重設時間後使用一次正常請求。", "再開機能とは独立。残量があってもサーバーのリセット後に通常リクエストを 1 回使用します。", "복구와 별개로 동작합니다. 잔여 한도가 있어도 서버 초기화 후 일반 요청 1회를 사용합니다."),
+    "keeper_independent": ('Only after five-hour quota exhaustion, with no pending quota recovery. Uses one normal request; never forces a server reset.', '仅五小时额度耗尽且无额度中断任务待恢复时，使用一次正常请求启动新窗口；不能强制服务端重置。', '僅五小時額度耗盡且無中斷任務待恢復時，使用一次正常請求啟動新視窗；不能強制重設。', '5 時間枠が枯渇し再開待ちがない場合のみ通常リクエストを送信。強制リセットはできません。', '5시간 한도 소진 및 복구 대기 없음일 때만 일반 요청 사용. 서버 초기화 강제 불가.'),
     "keeper_next": ("Next boundary", "下一窗口", "下一視窗", "次の枠", "다음 창"),
     "keeper_last": ("Last attempt", "上次尝试", "上次嘗試", "前回", "최근 시도"),
     "keeper_completed": ("Replied OK", "已回复 OK", "已回覆 OK", "OK 応答済み", "OK 응답 완료"),

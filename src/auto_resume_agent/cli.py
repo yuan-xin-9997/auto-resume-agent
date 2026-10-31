@@ -81,6 +81,7 @@ def main(argv=None):
         "mode", choices=("on", "off", "status"), nargs="?", default="status")
     sub.add_parser("auto-watch", help="Discover quota-exhausted Codex sessions (default on)").add_argument(
         "mode", choices=("on", "off", "status"), nargs="?", default="status")
+    sub.add_parser("interval", help="Check interval in seconds (5-3600), separately per agent").add_argument("seconds", type=int, nargs="?")
     args = parser.parse_args(argv)
     if args.action == "install":
         from .install import install
@@ -119,6 +120,13 @@ def main(argv=None):
         store = selected_store(base, agent)
     except BackendError as error:
         parser.error(str(error))
+    if args.action == "interval":
+        if args.seconds is not None:
+            if not 5 <= args.seconds <= 3600:
+                parser.error("interval must be between 5 and 3600 seconds")
+            base.set(agent + "_interval", args.seconds)
+        print(json.dumps({"agent": agent, "seconds": base.get(agent + "_interval", 30)}))
+        return 0
     if args.action == "auto-watch":
         if agent != "codex":
             parser.error("auto-watch is available for Codex only")
@@ -186,11 +194,12 @@ def main(argv=None):
                     result = engine.tick()
                 except (BackendError, OSError, ValueError) as error:
                     backend.close()
-                    result = {"error": str(error) if isinstance(error, BackendError) else "local_io_error", "delay": 10}
+                    result = {"error": str(error) if isinstance(error, BackendError) else "local_io_error", "delay": store.interval()}
                 print(json.dumps(result), flush=True)
                 if args.action == "check":
                     return 1 if result.get("error") else 0
-                stop.wait(result["delay"])
+                from .model import wait_for_check
+                wait_for_check(stop, result["delay"])
     except (BackendError, OSError) as error:
         print(json.dumps({"error": str(error) if isinstance(error, BackendError) else "local_io_error"}), file=sys.stderr)
         return 1

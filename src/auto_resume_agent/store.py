@@ -40,6 +40,8 @@ class Store:
                     home TEXT NOT NULL, reset_at REAL NOT NULL, state TEXT NOT NULL,
                     thread_id TEXT, created REAL NOT NULL, PRIMARY KEY(home,reset_at));
             ''')
+            if self.agent == "codex":
+                db.execute("INSERT OR IGNORE INTO settings VALUES ('enabled','true')")
             # Preserve legacy manual cancellations when default discovery is introduced.
             db.execute("INSERT OR IGNORE INTO watch_exclusions SELECT DISTINCT thread_id,? FROM recoveries "
                        "WHERE state='cancelled' AND thread_id NOT IN (SELECT id FROM watched)", (self.source,))
@@ -57,6 +59,10 @@ class Store:
                 yield connection
         finally:
             connection.close()
+
+    def interval(self):
+        value = self.get("codex_interval" if self.agent == "codex" else "poll_interval", 30)
+        return value if type(value) is int and 5 <= value <= 3600 else 30
 
     def get(self, key, default=None):
         with self.db() as db:

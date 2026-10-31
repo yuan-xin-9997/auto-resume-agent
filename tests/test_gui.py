@@ -15,6 +15,7 @@ def test_five_languages_and_watch_controls(tmp_path):
     app = QApplication.instance() or QApplication([])
     app.setStyleSheet(STYLE)
     store = Store(tmp_path)
+    store.set("enabled", False)
     window = Window(store, start_worker=False)
     assert window.auto_watch.isChecked()
     window.auto_watch.setChecked(False)
@@ -131,6 +132,8 @@ def test_settings_survive_window_and_store_restart(tmp_path):
     store = Store(tmp_path)
     first = Window(store, start_worker=False)
     first.languages.setCurrentIndex(first.languages.findData("zh-CN"))
+    first.intervals["codex"].setValue(45)
+    first.intervals["opencode"].setValue(90)
     first.auto_watch.setChecked(False)
     first.keeper_toggle.setChecked(True)
     first.codex_proxy.setText("http://127.0.0.1:7890")
@@ -143,6 +146,8 @@ def test_settings_survive_window_and_store_restart(tmp_path):
     first.close()
     restarted = Store(tmp_path)
     second = Window(restarted, start_worker=False)
+    assert second.intervals["codex"].value() == 45
+    assert second.intervals["opencode"].value() == 90
     assert second.language == "zh-CN"
     assert not second.auto_watch.isChecked()
     assert second.keeper_toggle.isChecked() and window_keeper.enabled(restarted)

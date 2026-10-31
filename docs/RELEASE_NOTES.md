@@ -1,8 +1,10 @@
-# Auto Resume Agent v0.5.3
+# Auto Resume Agent v0.5.4
 
-- Skip creating a Codex window helper when the server already reports an active new five-hour window; follow its reset deadline instead.
-- Search loaded Codex/OpenCode sessions by name, UUID or workspace. Bulk actions affect visible checked sessions only.
-- Show session names alongside UUIDs in activity history, with a durable local name cache.
-- Preserve existing settings, monitored sessions and recovery records on upgrade.
+- Default monitoring cadence is 30 seconds with independently persisted Codex/OpenCode settings (5–3600 seconds) and CLI `interval` control.
+- Adopt running Codex sessions as well as structured quota interruptions. New Codex state enables recovery; existing saved pauses/exclusions remain respected.
+- Continue every eligible interrupted session when all blocking quotas recover. Prioritize session recovery over helper creation.
+- The optional Codex helper now requires an observed exhausted five-hour window and no pending quota recovery; unused quota never creates a helper.
+- Wall-clock waits and transport renewal after long gaps handle sleep/wake. Known blocked quotas reduce upstream polls to up to five-minute intervals while local checks and reset deadlines continue.
+- Settings page scrolls on small displays; five locales updated.
 
-Validation: 124 automated tests on the local Windows environment; native platform builds run in CI. Other OS versions require device validation. Artifacts remain unsigned.
+Validation: 131 automated tests on the local Windows environment. Sleep/wake and quota exhaustion are simulated; no physical suspend/resume or new live quota-boundary experiment is claimed. Native builds run in CI; artifacts remain unsigned.

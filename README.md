@@ -20,7 +20,7 @@ Supports **Codex CLI/local desktop sessions and OpenCode HTTP server sessions**.
 | --- | --- |
 | Usage | Live primary/secondary windows, remaining percentage, local reset times, last check |
 | Recovery | Known quota limits, rate limits, temporary connection/stream/server failures |
-| Timing | Session checks every 5 seconds; quota every 30 seconds and at due deadlines |
+| Timing | Checks every 30 seconds by default; separate Codex/OpenCode intervals, with deadline checks |
 | Sleep/wake | Wall-clock deadlines are re-evaluated on the next scheduled check after wake |
 | Identity | Default discovery of latest Codex quota failures; manual exclusions and per-turn durable claims |
 | Delivery | Durable claim before submission; a timeout/crash never triggers blind resending |
@@ -46,13 +46,13 @@ Verify the archive's SHA-256 against its adjacent `.sha256` file before extracti
 
 ```powershell
 # Windows
-Get-FileHash .\AutoResumeAgent-v0.5.3-windows-x64.zip -Algorithm SHA256
+Get-FileHash .\AutoResumeAgent-v0.5.4-windows-x64.zip -Algorithm SHA256
 ```
 ```sh
 # Ubuntu / macOS
-sha256sum AutoResumeAgent-v0.5.3-linux-x64.tar.gz
-shasum -a 256 AutoResumeAgent-v0.5.3-macos-arm64.tar.gz
-shasum -a 256 AutoResumeAgent-v0.5.3-macos-x64.tar.gz
+sha256sum AutoResumeAgent-v0.5.4-linux-x64.tar.gz
+shasum -a 256 AutoResumeAgent-v0.5.4-macos-arm64.tar.gz
+shasum -a 256 AutoResumeAgent-v0.5.4-macos-x64.tar.gz
 ```
 
 Windows installs to `%LOCALAPPDATA%/Programs/AutoResumeAgent`. Run `Install.cmd` from each new release to update the same location and shortcuts; settings and monitored sessions stay in `%LOCALAPPDATA%/AutoResumeAgent`. `Launch.cmd` remains available for portable use.
@@ -67,7 +67,7 @@ Settings persist in local SQLite across restarts. Language, feature switches and
 
 ### Default quota-session monitoring
 
-Unfinished Codex sessions whose **latest turn failed with a structured usage-limit error** are automatically added to monitoring by default. Discovery runs in the GUI worker and CLI `watch`/`check`, using paginated session lists and bounded batches, so recent sessions are prioritized without blocking on the entire history. Recovery still follows the existing enable/pause switch and quota checks. Completed, user-interrupted, archived, subagent and five-hour helper sessions are excluded.
+Running Codex sessions and unfinished sessions whose **latest turn failed with a structured usage-limit error** are automatically added to monitoring by default. Discovery runs in the GUI worker and CLI `watch`/`check`, using paginated session lists and bounded batches, so recent sessions are prioritized without blocking on the entire history. Recovery still follows the existing enable/pause switch and quota checks. Completed, user-interrupted, archived, subagent and five-hour helper sessions are excluded.
 
 Unwatching a session persists an exclusion; automatic discovery will not add it back. Manually watching it removes that exclusion. Legacy cancelled/unwatched sessions retain their exclusion on upgrade. Disable **Automatically watch quota-exhausted Codex sessions** in Settings, or run `auto-resume-agent auto-watch off`; `on` and `status` are also available. Disabling discovery retains existing watches. OpenCode does not expose the same structured Codex quota error and is still watched manually.
 
@@ -122,9 +122,17 @@ The adapter reads session status and messages in memory to classify failures and
 
 Integration reference: [official OpenCode server API](https://docs.opencode.ai/docs/server/).
 
+## Monitoring cadence and sleep/wake
+
+Settings contains separate Codex and OpenCode check intervals (5–3600 seconds, default 30), saved immediately and retained on restart. CLI: `auto-resume-agent interval 30` and `auto-resume-agent --agent opencode interval 60`.
+
+With quota available and no active/interrupted task, no continuation/helper is sent. Running Codex sessions are adopted into monitoring. Every eligible quota-interrupted session is continued when **all** exposed blocking quotas (including weekly) recover; explicit pauses, manual exclusions and durable delivery claims still apply. Codex queue acceptance needs the original session open to execute.
+
+The monitor uses short wall-clock waits. After sleep or a long scheduling gap it reconnects and reads fresh quota on the first pass. Nothing runs while the PC is asleep/off. Local discovery is paginated and bounded and reads latest-turn metadata, not transcripts. While quota is blocked with a known future reset, upstream quota polls are spaced up to five minutes apart; local checks retain their configured cadence and deadlines trigger fresh quota checks. No fixed proxy-traffic volume can be promised across providers/versions.
+
 ## Optional Codex five-hour window starter (default OFF)
 
-Enable the checkbox above the dashboard controls to create a **new dedicated session** and send exactly **回复 OK** after the Codex primary 300-minute window expires, even when its allowance was not fully used. It is independent of the recovery enable/pause button and does not require watched sessions. The Codex monitor must stay running; selecting OpenCode in this GUI does not run a Codex monitor.
+Enable the checkbox above the dashboard controls to create a **new dedicated session** and send exactly **回复 OK** after the Codex primary 300-minute window expires, only if its allowance was exhausted and no quota-interrupted session is awaiting recovery. With unused allowance no helper is sent. It is independent of the recovery enable/pause button and does not require watched sessions. The Codex monitor must stay running; selecting OpenCode in this GUI does not run a Codex monitor.
 
 ```sh
 auto-resume-agent window-keeper status  # Read-only; a new installation is off
@@ -154,7 +162,7 @@ This consumes a **normal Codex request** using the configured model. It attempts
 4. Click **Enable recovery** and leave the monitor running. Keep the original Codex sessions open.
 5. See the dashboard and Activity page for waiting, queued, uncertain or progressed records.
 
-Recovery starts in observe-only mode on a new installation. Watching a session includes its latest retryable failure, even if it occurred more than a minute before monitoring began, and future failures. Only the monitored session's latest turn is inspected; cancelled or already-claimed recoveries are not replayed. Closing the GUI stops its monitor; it does not install an invisible startup service. The saved enable/pause setting is retained for the next launch.
+Codex recovery starts enabled on new state; OpenCode remains opt-in. An explicitly saved pause is preserved. Watching a session includes its latest retryable failure, even if it occurred more than a minute before monitoring began, and future failures. Only the monitored session's latest turn is inspected; cancelled or already-claimed recoveries are not replayed. Closing the GUI stops its monitor; it does not install an invisible startup service. The saved enable/pause setting is retained for the next launch.
 
 ### Command line
 
