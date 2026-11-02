@@ -133,3 +133,10 @@ Automatic watching does not prove execution: Codex queue acceptance still depend
 ## v0.5.4 — monitoring policy and wake recovery (2026-10-31)
 
 131 automated tests pass locally. Coverage includes active-session adoption, three interrupted sessions waiting for primary and weekly quota then each receiving one continuation, idle available quota sending nothing, exhausted idle quota arming a helper, pending recovery suppressing that helper, a simulated wake closing the old transport and reading fresh quota, short wall-clock waits escaping a long simulated sleep, reduced upstream polling while blocked, independent persistent CLI/GUI intervals, and new-state defaults preserving existing saved pauses. No production task is sent a continuation for testing. Actual machine suspend/resume and proxy bytes on the wire are not measured by these tests.
+
+
+## v0.5.5 — desktop interface redesign (2026-11-02)
+
+131 automated tests pass locally, including the existing GUI behavior, selection, persistence, language and recovery-state regressions. The redesigned interface was rendered offscreen with real Windows fonts in Chinese and English, light and dark themes, at 1200×800 and the 960×660 minimum size; checked states include populated and empty session tables, activity history, settings, filter controls, loading, toast and compact layouts. No screenshot or rendering check substitutes for a real recovery.
+
+The Windows x64 bundle reported `0.5.5` from its CLI and passed its GUI `--smoke-test`. Installing that bundle over v0.5.4 preserved the local state database (settings, watched sessions, recoveries, window claims and watch exclusions) and retargeted the existing shortcuts. This is packaged startup and local upgrade evidence, not a live model request.
