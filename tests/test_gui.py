@@ -6,6 +6,7 @@ import pytest
 pytest.importorskip("PySide6")
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt
+from auto_resume_agent.backends import selected_store
 from auto_resume_agent.gui import Window, STYLE
 from auto_resume_agent.store import Store
 from auto_resume_agent.i18n import LANGUAGES, EN, TRANSLATIONS
@@ -17,6 +18,7 @@ def test_five_languages_and_watch_controls(tmp_path):
     store = Store(tmp_path)
     store.set("enabled", False)
     window = Window(store, start_worker=False)
+    window.set_filter("all")
     assert window.auto_watch.isChecked()
     window.auto_watch.setChecked(False)
     assert store.get("auto_watch_quota") is False
@@ -45,6 +47,7 @@ def test_five_languages_and_watch_controls(tmp_path):
     assert not store.watched()
     window.agents.setCurrentIndex(1)
     assert window.agent == "opencode" and window.store.agent == "opencode"
+    window.set_filter("all")
     window.rows = [{"id": "ses_gui", "name": "OpenCode fixture", "cwd": str(tmp_path)}]
     window.render()
     window.table.item(0, 0).setCheckState(Qt.CheckState.Checked)
@@ -52,7 +55,8 @@ def test_five_languages_and_watch_controls(tmp_path):
     assert window.store.watched()[0]["id"] == "ses_gui"
     window.toggle_enabled()
     window.agents.setCurrentIndex(0)
-    assert window.store is store and not store.get("enabled")
+    assert window.store is store and store.get("enabled")
+    assert selected_store(store, "opencode").get("enabled") is True
     window.close()
     assert all(set(v) == set(EN) for v in TRANSLATIONS.values())
 
@@ -60,6 +64,7 @@ def test_five_languages_and_watch_controls(tmp_path):
 def test_checkbox_selection_tracks_ids_and_survives_refresh(tmp_path):
     app = QApplication.instance() or QApplication([])
     window = Window(Store(tmp_path), start_worker=False)
+    window.set_filter("all")
     ids = [str(uuid.uuid4()) for _ in range(3)]
     window.rows = [{"id": tid, "name": "Session " + str(i), "cwd": str(tmp_path)} for i, tid in enumerate(ids)]
     window.render()
@@ -103,6 +108,7 @@ def test_rewatch_cancelled_recovery_shows_watching_without_resetting_history(tmp
     app = QApplication.instance() or QApplication([])
     store = Store(tmp_path)
     window = Window(store, start_worker=False)
+    window.set_filter("all")
     window.languages.setCurrentIndex(window.languages.findData("zh-CN"))
     tid, turn = str(uuid.uuid4()), str(uuid.uuid4())
     store.watch(tid)
@@ -159,21 +165,115 @@ def test_settings_survive_window_and_store_restart(tmp_path):
     second.close()
 
 
+def test_switching_agents_saves_connection_fields_and_keeps_enabled_state(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    base = Store(tmp_path)
+    base.set("agent", "codex")
+    base.set("enabled", True)
+    opencode = selected_store(base, "opencode")
+    opencode.set("enabled", True)
+    window = Window(base, start_worker=False)
+    window.opencode_url.setText("http://127.0.0.1:28894")
+    window.opencode_directory.setText(str(tmp_path))
+    window.codex_proxy.setText("http://127.0.0.1:7890")
+    assert window.dirty and window.save_button.isEnabled()
+    window.agents.setCurrentIndex(window.agents.combo.findData("opencode"))
+    assert window.agent == "opencode" and base.get("agent") == "opencode"
+    assert base.get("opencode_url") == "http://127.0.0.1:28894"
+    assert base.get("opencode_directory") == str(tmp_path)
+    assert base.get("codex_proxy") == "http://127.0.0.1:7890"
+    assert not window.dirty and not window.save_button.isEnabled()
+    window.store.set("enabled", True)
+    window.agents.setCurrentIndex(window.agents.combo.findData("codex"))
+    assert window.agent == "codex" and base.get("enabled") is True
+    assert selected_store(base, "opencode").get("enabled") is True
+    window.close()
+
+
+def test_invalid_connection_blocks_agent_switch(tmp_path, monkeypatch):
+    app = QApplication.instance() or QApplication([])
+    base = Store(tmp_path)
+    base.set("agent", "codex")
+    base.set("enabled", True)
+    window = Window(base, start_worker=False)
+    window.opencode_url.setText("http://example.com/path")
+    warnings = []
+    monkeypatch.setattr("auto_resume_agent.gui.QMessageBox.warning",
+                        lambda *args, **kwargs: warnings.append(args))
+    window.agents.setCurrentIndex(window.agents.combo.findData("opencode"))
+    assert window.agent == "codex" and base.get("agent") == "codex"
+    assert window.agents.combo.currentData() == "codex"
+    assert window.agents.buttons[0].isChecked() and not window.agents.buttons[1].isChecked()
+    assert warnings and window.dirty
+    window.close()
+
+
 def test_quota_duration_labels_all_languages():
     from auto_resume_agent.i18n import duration_label
     assert duration_label(300, "zh-CN") == "5 小时"
     assert duration_label(10080, "zh-CN") == "一周"
+    assert duration_label(43200, "zh-CN") == "一个月"
     assert duration_label(300) == "5 hours"
     assert duration_label(10080) == "1 week"
+    assert duration_label(43200) == "1 month"
     assert duration_label(60, "zh-CN") == "60 分钟"
     for language in LANGUAGES:
         assert "300" not in duration_label(300, language)
         assert "10080" not in duration_label(10080, language)
+        assert "43200" not in duration_label(43200, language)
+
+def test_empty_quota_card_uses_pending_status(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    window = Window(Store(tmp_path), start_worker=False)
+    card = window.build_quota_card(None, None)
+    texts = [label.text() for label in card.findChildren(type(window.connection))]
+    assert window.text("quota_pending") in texts
+    window.close()
+
+
+def test_default_filter_is_watching(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    window = Window(Store(tmp_path), start_worker=False)
+    assert window.filter_key == "filter_watching"
+    assert window.filter_buttons["filter_watching"].isChecked()
+    assert not window.filter_buttons["all"].isChecked()
+    window.close()
+
+
+def test_initial_connection_state_is_connecting(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    window = Window(Store(tmp_path), start_worker=False)
+    assert window.connection.text() == window.text("connecting")
+    assert window.connection_tone == "accent"
+    window.close()
+
+
+def test_periodic_refresh_uses_non_destructive_sync(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    store = Store(tmp_path)
+    window = Window(store, start_worker=False)
+    requests = []
+
+    class Worker:
+        def request(self, kind, value=None):
+            requests.append((kind, value))
+
+    window.worker = Worker()
+    window.loading = False
+    window.periodic_refresh()
+    assert requests == [("sync", None)]
+    window.loading = True
+    window.periodic_refresh()
+    assert requests == [("sync", None)]
+    window.worker = None
+    window.close()
+
 
 def test_session_search_and_persistent_activity_names(tmp_path):
     app = QApplication.instance() or QApplication([])
     store = Store(tmp_path)
     window = Window(store, start_worker=False)
+    window.set_filter("all")
     a, b = str(uuid.uuid4()), str(uuid.uuid4())
     window.rows = [{"id": a, "name": "Alpha report", "cwd": "/work/Research"},
                    {"id": b, "name": "Beta", "cwd": "/work/Other"}]

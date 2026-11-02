@@ -140,3 +140,15 @@ Automatic watching does not prove execution: Codex queue acceptance still depend
 131 automated tests pass locally, including the existing GUI behavior, selection, persistence, language and recovery-state regressions. The redesigned interface was rendered offscreen with real Windows fonts in Chinese and English, light and dark themes, at 1200×800 and the 960×660 minimum size; checked states include populated and empty session tables, activity history, settings, filter controls, loading, toast and compact layouts. No screenshot or rendering check substitutes for a real recovery.
 
 The Windows x64 bundle reported `0.5.5` from its CLI and passed its GUI `--smoke-test`. Installing that bundle over v0.5.4 preserved the local state database (settings, watched sessions, recoveries, window claims and watch exclusions) and retargeted the existing shortcuts. This is packaged startup and local upgrade evidence, not a live model request.
+
+## OpenCode 2.x adapter (unreleased, 2026-11-02)
+
+156 automated tests pass locally, including 17 OpenCode 2.x cases and 8 lifecycle/switch/refresh/status/UI-default regressions. Coverage includes v1/v2 auto-detection behind the 2.x HTML health response, Basic auth challenge and success, paginated session lists, metadata/archive filtering, Go rolling/weekly/monthly usage, Go reset scheduling, `provider.transport`/`provider.error`/`provider.quota`/`provider.free-limit` classification, active/permission/form blocking, at-most-once submit, ambiguous delivery, CLI `doctor`, automatic adoption of running OpenCode sessions and OpenCode usage-limit failures, automatic unwatching of finished Codex and OpenCode sessions without an exclusion, preservation while a quota or delivery recovery is active, the non-destructive 30-second list sync, the default Watching filter, agent switching that commits pending connection fields, preserves each agent's enabled/paused state, and rejects invalid connection fields without switching, and the initial Connecting/Pending status labels.
+
+Manual verification against the local OpenCode Desktop 2.2.5 service on 2026-11-02:
+
+- URL `http://127.0.0.1:28894`; Basic auth password read from `~/.config/opencode/service.json` and supplied only through the environment.
+- `doctor`: `compatible: true`, all five checks ok, `quota_known: true`.
+- `usage`: OpenCode Go rolling, weekly and monthly windows with reset times.
+- A temporary session accepted `POST /api/session/{id}/prompt` with `delivery: queue` and `resume: true`; the user message and a 2-character assistant reply were observed. The session returned HTTP 204 on delete and the temporary directory was removed.
+- No personal conversation was modified and no quota reset was forced. The synthetic delivery verifies the 2.x prompt route, not a production quota-exhaustion recovery.

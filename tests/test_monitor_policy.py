@@ -39,6 +39,45 @@ def test_idle_available_never_starts_helper(tmp_path):
     assert not b.sent and not b.helpers
 
 
+def test_finished_session_is_unwatched_without_blocking_rediscovery(tmp_path):
+    store = Store(tmp_path)
+    store.set("enabled", True)
+    backend = Backend(1)
+    engine = Engine(store, backend, lambda: NOW)
+    engine.tick()
+    tid = backend.rows[0]["id"]
+    assert [row["id"] for row in store.watched()] == [tid]
+    backend.turns[tid] = {"id": str(uuid.uuid4()), "status": "completed", "completedAt": NOW + 10}
+    engine.clock = lambda: NOW + 30
+    engine.tick()
+    assert not store.watched()
+    with store.db() as db:
+        assert db.execute("SELECT count(*) FROM watch_exclusions").fetchone()[0] == 0
+    assert any(event["code"] == "auto_unwatched" for event in store.events())
+
+
+def test_finished_session_with_active_recovery_stays_watched(tmp_path):
+    store = Store(tmp_path)
+    store.set("enabled", True)
+    backend = Backend(1)
+    engine = Engine(store, backend, lambda: NOW)
+    engine.tick()
+    tid = backend.rows[0]["id"]
+    completed = str(uuid.uuid4())
+    backend.turns[tid] = {"id": completed, "status": "completed", "completedAt": NOW + 10}
+    with store.db() as db:
+        db.execute("INSERT INTO recoveries(id,thread_id,turn_id,kind,state,due,created) VALUES (?,?,?,?,?,?,?)",
+                   ("fixture", tid, completed, "rate_limit", "accepted", NOW, NOW))
+    engine.clock = lambda: NOW + 30
+    engine.tick()
+    assert [row["id"] for row in store.watched()] == [tid]
+    with store.db() as db:
+        db.execute("UPDATE recoveries SET state='progressed' WHERE id='fixture'")
+    engine.clock = lambda: NOW + 60
+    engine.tick()
+    assert not store.watched()
+
+
 def test_running_sessions_are_watched_and_all_quota_failures_resume_after_week(tmp_path):
     store=Store(tmp_path);store.set('enabled',True);keeper.set_enabled(store,True)
     b=Backend(3);engine=Engine(store,b,lambda:NOW)

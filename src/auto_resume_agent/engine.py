@@ -9,6 +9,7 @@ from . import window_keeper
 from .discovery import QuotaDiscovery
 
 MESSAGE = "Continue the unfinished work from this interruption. Respect all existing instructions and stop if user input or approval is required."
+ACTIVE_RECOVERY_STATES = ("waiting", "sending", "queued", "accepted", "uncertain")
 
 
 class Engine:
@@ -69,6 +70,7 @@ class Engine:
         watched = self.store.watched()
         problems = []
         quota_interrupted = False
+        finished = set()
         for watch in watched:
             tid = watch["id"]
             try:
@@ -79,6 +81,7 @@ class Engine:
                 # Archived, imported, and subagent threads never receive automatic messages.
                 source = metadata.get("source")
                 if metadata.get("archived") or not isinstance(source, str) or source not in ("cli", "vscode", "appServer", "exec", "opencode"):
+                    finished.add(tid)
                     continue
                 turn = self.backend.latest(tid)
                 if not isinstance(turn, dict):
@@ -88,6 +91,8 @@ class Engine:
                 if not getattr(self.backend, "valid_turn_id", valid_id)(turn.get("id")):
                     continue
                 self._reconcile(tid, turn, records)
+                if turn.get("status") in ("completed", "interrupted"):
+                    finished.add(tid)
                 kind = category(turn)
                 quota_interrupted |= kind == "usage_limit"
                 completed = turn.get("completedAt")
@@ -121,6 +126,12 @@ class Engine:
                 problems.append(tid)
             except (KeyError, TypeError, ValueError):
                 problems.append(tid)
+        # Keep running sessions and sessions with a pending/uncertain recovery.
+        # Finished sessions with no outstanding work should not stay watched.
+        active = {r["thread_id"] for r in self.store.records() if r["state"] in ACTIVE_RECOVERY_STATES}
+        for tid in finished:
+            if tid not in active and self.store.unwatch_auto(tid):
+                self.store.event(tid, "auto_unwatched")
         pending = [r["due"] for r in self.store.records() if r["state"] == "waiting" and r["due"] > self.clock()]
         if keeper is not None:
             keeper = window_keeper.tick(self.store, self.backend, self.snapshot, self.clock(),
@@ -128,7 +139,7 @@ class Engine:
                                         or bool(self.discovery.pending) or bool(self.discovery.cursor))
             if keeper["enabled"] and numeric(keeper.get("next_at")) and keeper["next_at"] > self.clock():
                 pending.append(keeper["next_at"])
-        return {"usage": self.snapshot, "enabled": enabled, "watched": len(watched),
+        return {"usage": self.snapshot, "enabled": enabled, "watched": len(self.store.watched()),
                 "window_keeper": keeper,
                 "error": "thread_read_failed" if problems or discovery_error else None,
                 "delay": next_delay(self.clock(), min(pending) if pending else None, normal=interval)}

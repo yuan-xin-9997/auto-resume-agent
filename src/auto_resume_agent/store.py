@@ -96,6 +96,12 @@ class Store:
             db.execute("UPDATE recoveries SET state='cancelled' WHERE thread_id=? AND state IN ('waiting','sending')",
                        (thread_id,))
 
+    def unwatch_auto(self, thread_id):
+        """Stop watching a finished session without blocking later rediscovery."""
+        with self.db() as db:
+            return bool(db.execute("DELETE FROM watched WHERE id=? AND home=?",
+                                   (thread_id, self.source)).rowcount)
+
     def cancel(self, record_id):
         with self.db() as db:
             return bool(db.execute(

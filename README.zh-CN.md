@@ -10,7 +10,7 @@
 
 Agent 任务中途额度耗尽后，本软件检测失败轮次，查询 Codex 返回的额度窗口，在额度可用后向**同一会话 UUID**提交继续指令。不使用 `--last`，不模拟键盘向窗口输入。
 
-现已支持 **Codex CLI、本地 Codex 桌面会话和 OpenCode HTTP 服务会话**。在仪表盘切换 Agent，或通过 CLI 的 `--agent opencode` 选择。Claude Code、Gemini CLI 和纯云端 Codex 会话尚未适配。
+现已支持 **Codex CLI、本地 Codex 桌面会话、OpenCode 1.19.x HTTP 服务会话和 OpenCode 2.x 桌面会话**。在仪表盘切换 Agent，或通过 CLI 的 `--agent opencode` 选择。Claude Code、Gemini CLI 和纯云端 Codex 会话尚未适配。
 
 ![仪表盘示例](docs/screenshots/dashboard.zh-CN.png)
 
@@ -27,9 +27,11 @@ Agent 任务中途额度耗尽后，本软件检测失败轮次，查询 Codex �
 
 **重要限制：**“已排队”只表示 Codex CLI 接受了继续消息，不能证明任务已经执行。请保持原会话在 Codex 中打开；未加载的会话可能一直排队，打开后才能继续。“会话已继续”只证明出现了新轮次，不证明是本软件触发。本软件不会在后台另开不受限制的替代 Agent。
 
+首次连接检查完成前，连接状态显示 **连接中…**；没有额度数据时，额度卡片显示 **待获取**，不再显示单独的“未知”。
+
 ## 安装
 
-从 [Releases](https://github.com/yuan-xin-9997/auto-resume-agent/releases) 下载对应系统和处理器的压缩包。原生包自带 Python，但仍需**单独安装并登录你使用的 Agent（Codex 或 OpenCode 服务）**。OpenCode 实测版本为 **1.19.3**。实际测试的 Codex CLI 版本为 **0.163.0**；其他版本请先运行 `doctor`，旧版本可能不支持相关实验接口。接口方法缺失或响应字段变化时，`doctor` 会报告 `compatible`、失败步骤及 `automatic_sending: blocked`，且不会提交继续指令。
+从 [Releases](https://github.com/yuan-xin-9997/auto-resume-agent/releases) 下载对应系统和处理器的压缩包。原生包自带 Python，但仍需**单独安装并登录你使用的 Agent（Codex 或 OpenCode 服务）**。OpenCode 实测版本为 **1.19.3**（v1 HTTP API）和 **2.2.5**（2.x 桌面 `/api`，实验性）。实际测试的 Codex CLI 版本为 **0.163.0**；其他版本请先运行 `doctor`，旧版本可能不支持相关实验接口。接口方法缺失或响应字段变化时，`doctor` 会报告 `compatible`、失败步骤及 `automatic_sending: blocked`，且不会提交继续指令。
 
 | 系统 | 包名 | 启动方式 |
 | --- | --- | --- |
@@ -44,19 +46,21 @@ Agent 任务中途额度耗尽后，本软件检测失败轮次，查询 Codex �
 
 Windows 固定安装到 `%LOCALAPPDATA%/Programs/AutoResumeAgent`。每次下载新版后运行 `Install.cmd`，即可更新程序与快捷方式；设置和监控会话仍保存在 `%LOCALAPPDATA%/AutoResumeAgent`。也可使用 `Launch.cmd` 便携运行。
 
-勾选会话复选框或使用“全选”，然后点击“监控所选会话”或“取消监控”；单独勾选不会改变监控状态。刷新时保留勾选。额度窗口以“5 小时”“一周”显示，支持五种界面语言。
+勾选会话复选框或使用“全选”，然后点击“监控所选会话”或“取消监控”；单独勾选不会改变监控状态。刷新时保留勾选。额度窗口以“5 小时”“一周”显示，OpenCode Go/Go Plus 还会显示“一个月”，支持五种界面语言。
 
 [本机更新流程](docs/LOCAL_UPDATES.md)
 
 若专用会话提示响应流断开，请在设置中填写 **Codex HTTP(S) 代理**（带端口，不含凭据），或使用 `--codex-proxy http://127.0.0.1:7890`。请填写自己的代理地址；程序不会假定端口。留空继承进程环境。此设置只传给 Codex 子进程，也包括独立的窗口启动客户端。
 
-配置保存在本地 SQLite，关闭或重启程序后会恢复。语言、功能开关和监控选择即时保存；代理、可执行文件和 OpenCode 连接信息需点击“保存设置”。保存连接设置会暂停恢复，重新开启后该开关状态也会保留。
+配置保存在本地 SQLite，关闭或重启程序后会恢复。语言、功能开关和监控选择即时保存；代理、可执行文件和 OpenCode 连接信息需点击“保存设置”。保存连接设置会暂停当前所选 Agent 的恢复，重新开启后该开关状态也会保留。在 Codex 和 OpenCode 之间切换时，会先保存尚未提交的连接字段，并保留各自独立的开启／暂停状态和监控列表。
 
 ### 默认监控额度耗尽会话
 
 Codex 会话的**最新轮次明确因额度耗尽而失败**时，默认自动加入监控，无需手动勾选。GUI 后台和 CLI 的 `watch`／`check` 都支持分页发现与分批检查，优先发现最近变动的会话。恢复仍遵守原有开启／暂停开关和额度检查。已完成、用户主动中断、归档、子 Agent 和五小时窗口专用会话不自动加入。
 
-点击“取消监控”会保存排除记录，不会在下一次扫描时自动加回来；手动点击“监控所选会话”可解除排除。升级时保留旧版已取消且未监控会话的排除意图。在设置中可关闭“自动监控因额度耗尽未完成的 Codex 会话”，也可运行 `auto-resume-agent auto-watch off`；支持 `on`、`status`。关闭自动发现不会移除已有监控。OpenCode 没有相同的结构化 Codex 额度错误，仍需手动选择。
+点击“取消监控”会保存排除记录，不会在下一次扫描时自动加回来；手动点击“监控所选会话”可解除排除。升级时保留旧版已取消且未监控会话的排除意图。在设置中可关闭“自动监控因额度耗尽未完成的 Codex 会话”，也可运行 `auto-resume-agent auto-watch off`；支持 `on`、`status`。关闭自动发现不会移除已有监控。OpenCode 没有相同的结构化 Codex 额度错误，仍需手动选择；2.x 会暴露 OpenCode Go/Go Plus 额度，供额度卡片显示。
+
+同一条完成规则对 **Codex 和 OpenCode 都生效**：运行中的会话，或存在 waiting/queued/sending/accepted/uncertain 恢复记录的会话继续监控；已完成或已中断且没有待处理恢复的会话自动取消监控，且不写入永久排除；因额度耗尽或投递排队而等待的恢复会保留到处理完成。仪表盘默认显示 **监控中** 筛选；切到 **全部** 可选择未监控会话。新出现的运行中 Codex/OpenCode 会话会自动加入监控，OpenCode 的额度耗尽失败也会自动加入。手动“取消监控”会写入排除并阻止自动重新加入；因完成而自动取消不会。会话列表每 30 秒同步，刷新按钮可立即完整刷新。
 
 ### 从源码运行
 
@@ -81,18 +85,21 @@ sudo apt-get install libegl1 libgl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 l
 
 *示例会话，不含个人数据。*
 
-OpenCode 有官方 HTTP 会话接口，但**没有统一的供应商剩余额度查询 API**。界面明确显示“未知”，不会猜测剩余百分比。仅对明确可重试的 API 故障恢复，遵守 `Retry-After` 秒数或 HTTP 日期；无该头时采用有上限的退避，每个会话每小时最多提交五次。这是重试策略，不代表已确认额度可用。
+OpenCode 1.19.x 有官方 HTTP 会话接口，但**没有统一的供应商剩余额度查询 API**，界面显示“未知”。OpenCode 2.x 另外提供实验性 `/api` 接口，并返回 **OpenCode Go / Go Plus** 的滚动（5 小时）、每周和每月额度及重置时间；界面会显示这三个窗口，恢复会等待任一受限窗口报告的重置时间。
+
+1.19.x 仅对明确可重试的 `APIError` 恢复，遵守 `Retry-After` 秒数或 HTTP 日期；2.x 使用结构化的 `provider.transport`、`provider.error`、`provider.quota`、`provider.free-limit` 记录，OpenCode Go/Go Plus 的 `provider.quota` 会等到报告的重置时间。没有延迟时采用有上限的退避，每个会话每小时最多提交五次。这是重试策略，不代表已确认额度可用。
 
 ```sh
+# OpenCode 1.19.x 服务
 opencode serve --hostname 127.0.0.1 --port 4096
 # 需要处理权限或提问时，可连接终端：
 opencode attach http://127.0.0.1:4096
 ```
 
-也可使用已运行 TUI 的服务端口。在设置中填写服务地址和**服务端的绝对工作目录**，在仪表盘选择 **OpenCode**，监控 `ses_...` 会话并开启恢复。切换 Agent 或保存连接设置会暂停恢复，核对后再开启。一个 GUI 监控当前所选 Agent，可使用独立 CLI 进程分别监控两者，状态隔离。
+OpenCode 2.x 桌面版使用其后台服务地址（通常为 `http://127.0.0.1:28894`，以桌面日志中的实际地址为准）。该服务需要 Basic 认证：将 `OPENCODE_SERVER_PASSWORD` 设为 `~/.config/opencode/service.json` 中的 `password`（不要把密码写进 URL）。在设置中填写服务地址和**服务端的绝对工作目录**，在仪表盘选择 **OpenCode**，监控 `ses_...` 会话并开启恢复。切换 Agent 会先保存尚未提交的连接字段，并保留各自独立的开启／暂停状态和监控列表；点击“保存设置”会暂停当前所选 Agent 的恢复，核对后再开启。一个 GUI 监控当前所选 Agent，可使用独立 CLI 进程分别监控两者，状态隔离。
 
 ```sh
-auto-resume-agent --agent opencode --opencode-url http://127.0.0.1:4096 --opencode-directory /absolute/project doctor
+auto-resume-agent --agent opencode --opencode-url http://127.0.0.1:28894 --opencode-directory /absolute/project doctor
 auto-resume-agent --agent opencode sessions
 auto-resume-agent --agent opencode usage
 auto-resume-agent --agent opencode add ses_EXACT_SESSION_ID
@@ -103,15 +110,17 @@ auto-resume-agent --agent opencode pause
 
 地址和目录会保存。CLI 不指定 `--agent opencode` 时仍默认 Codex。Basic 认证通过与服务端一致的 `OPENCODE_SERVER_PASSWORD` 和可选 `OPENCODE_SERVER_USERNAME` 环境变量提供，密码不写入数据库或 URL。HTTP 仅限本机回环地址，远程服务需 HTTPS，也可使用 SSH 隧道。请求不跟随重定向、不使用系统 HTTP 代理。
 
-仅恢复 `isRetryable: true` 的 `APIError`：HTTP 429、408/425、5xx，或无状态码的连接错误。已知结构化账单／余额拒绝、认证失败、用户取消和未知错误不会自动恢复。运行中、自身重试中、等待权限或回答、子会话、已归档会话及存在回退操作时均不会插入消息。继续时保留原供应商、模型、Agent、variant 及原消息的工具限制、system 和格式设置，不会自动批准权限。
+每次检查都会重新判断监控状态：运行中的会话，或存在 waiting/queued/sending/accepted/uncertain 恢复记录的会话会继续监控；已完成或已中断且没有待处理恢复的会话会自动取消监控，**但不会写入永久排除**，以后重新运行仍可再次加入。仪表盘默认显示**监控中**；会话列表每 30 秒同步一次，点击刷新按钮会立即完整刷新。
 
-通过 `POST /session/{id}/prompt_async` 投递到精确会话。“已接受”仅表示 HTTP 接收确认，不证明已执行；新消息只证明会话进展，不证明是谁触发。模糊结果不会自动重发。只要服务仍在运行，TUI 关闭后也可继续；权限和提问仍须人工处理。
+1.19.x 仅恢复 `isRetryable: true` 的 `APIError`：HTTP 429、408/425、5xx，或无状态码的连接错误。2.x 恢复 `provider.transport` 和可重试的 `provider.error` 状态；`provider.quota`/`provider.free-limit` 只在服务端报告可用重置时间或重试延迟时调度，已知结构化账单拒绝不会恢复。运行中、自身重试中、等待权限或表单、子会话、已归档会话及存在回退操作时均不会插入消息。2.x 使用会话当前的模型、Agent 和 variant，不再重放每条消息的工具/system/格式设置；不会自动批准权限。
+
+1.19.x 通过 `POST /session/{id}/prompt_async` 投递，2.x 通过 `POST /api/session/{id}/prompt` 并携带 `delivery: queue`、`resume: true` 投递到精确会话。“已接受”仅表示 HTTP 接收确认，不证明已执行；新消息只证明会话进展，不证明是谁触发。模糊结果不会自动重发。只要服务仍在运行，TUI 关闭后也可继续；权限、提问和表单仍须人工处理。
 
 每组服务地址与目录在 `opencode/` 下有独立状态，原 Codex 状态保留。请固定使用同一地址和目录，避免其他恢复工具同时管理相同会话；地址别名或独立状态目录无法协调发送。
 
-适配器在内存中读取会话状态和消息，以分类故障、保留继续设置，不持久化对话、原始错误或供应商凭据。供应商认证及模型请求由 OpenCode 处理，本适配器仅通过环境变量使用服务 Basic 认证。
+适配器在内存中读取会话状态和消息，以分类故障；2.x 还会读取 `/api/experimental/usage/limits` 中的 OpenCode Go 额度。它不持久化对话、原始错误或供应商凭据。供应商认证及模型请求由 OpenCode 处理，本适配器仅通过环境变量使用服务 Basic 认证。
 
-接口依据：[OpenCode 官方服务文档](https://docs.opencode.ai/docs/server/)。
+接口依据：[OpenCode 官方服务文档](https://docs.opencode.ai/docs/server/)、[OpenCode 2.x API](https://opencode.ai/v2/docs/server)。
 
 ## 检查间隔与睡眠唤醒
 

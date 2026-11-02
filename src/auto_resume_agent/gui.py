@@ -64,6 +64,8 @@ class Worker:
                     kind, value = self.inbox.get_nowait()
                     if kind == "threads":
                         self.outbox.put((configured, "threads", (backend.threads(value), value is not None)))
+                    elif kind == "sync":
+                        self.outbox.put((configured, "threads", (backend.threads(None), True)))
                     elif kind == "refresh":
                         engine.last_usage = 0
                 result = engine.tick()
@@ -98,7 +100,7 @@ class Window(QMainWindow):
         self.cursor = None
         self.latest_tick = {}
         self.loading = False
-        self.filter_key = "all"
+        self.filter_key = "filter_watching"
         self.dirty = False
         self.worker = None
         self._page_animation = None
@@ -126,6 +128,9 @@ class Window(QMainWindow):
         self.slow_timer = QTimer(self)
         self.slow_timer.timeout.connect(self.render)
         self.slow_timer.start(1000)
+        self.sync_timer = QTimer(self)
+        self.sync_timer.timeout.connect(self.periodic_refresh)
+        self.sync_timer.start(30000)
         if start_worker:
             self.worker = Worker(self.base_store)
             self.loading = True
@@ -267,7 +272,7 @@ class Window(QMainWindow):
         self.side_dot = QLabel()
         self.side_dot.setFixedSize(8, 8)
         status_top.addWidget(self.side_dot)
-        self.side_status = QLabel(self.text("unknown"))
+        self.side_status = QLabel(self.text("connecting"))
         self.side_status.setObjectName("brandSub")
         self.side_status.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         status_top.addWidget(self.side_status, 1)
@@ -350,7 +355,7 @@ class Window(QMainWindow):
         self.connection_dot = QLabel()
         self.connection_dot.setFixedSize(8, 8)
         banner_box.addWidget(self.connection_dot)
-        self.connection = QLabel(self.text("unknown"))
+        self.connection = QLabel(self.text("connecting"))
         self.connection.setObjectName("muted")
         self.connection.setWordWrap(True)
         banner_box.addWidget(self.connection, 1)
@@ -359,7 +364,7 @@ class Window(QMainWindow):
         banner_box.addWidget(self.last_checked)
         box.addWidget(self.banner)
 
-        self._set_connection(self.text("unknown"), "neutral")
+        self._set_connection(self.text("connecting"), "accent")
 
         self.quota_header = SectionHeader(self.text("quota"))
         self.translated.append((self.quota_header.title, "quota"))
@@ -421,7 +426,7 @@ class Window(QMainWindow):
             self.filter_group.addButton(button)
             filter_box.addWidget(button)
             self.filter_buttons[key] = button
-        self.filter_buttons["all"].setChecked(True)
+        self.filter_buttons["filter_watching"].setChecked(True)
         toolbar.addWidget(filter_frame)
         toolbar.addStretch()
         card.box.addLayout(toolbar)
@@ -753,8 +758,8 @@ class Window(QMainWindow):
             self.dirty_label.setText(self.text("dirty"))
         if getattr(self, "connection_tone", None) == "ok":
             self._set_connection(self.text("ready").replace("Codex", self.agent_name()), "ok")
-        elif getattr(self, "connection_tone", None) == "neutral":
-            self._set_connection(self.text("unknown"), "neutral")
+        elif getattr(self, "connection_tone", None) in ("neutral", "accent"):
+            self._set_connection(self.text("connecting"), "accent")
         self.render()
 
     def change_theme(self):
@@ -819,7 +824,7 @@ class Window(QMainWindow):
         self.dirty_label.setText(self.text("dirty"))
         self.save_button.setEnabled(True)
 
-    def save(self):
+    def _commit_connection(self, pause):
         from .opencode import endpoint
         from .protocol import proxy_url
         try:
@@ -827,36 +832,57 @@ class Window(QMainWindow):
             proxy = proxy_url(self.codex_proxy.text().strip())
         except BackendError as error:
             QMessageBox.warning(self, self.text("error"), self.text(str(error)))
-            return
-        self.store.set("enabled", False)
+            return False
+        if pause:
+            self.store.set("enabled", False)
         self.base_store.set("codex_path", self.executable.text().strip())
         self.base_store.set("codex_proxy", proxy or "")
         self.base_store.set("opencode_url", url)
         self.base_store.set("opencode_directory", self.opencode_directory.text().strip())
         self.store = selected_store(self.base_store, self.agent)
-        self.store.set("enabled", False)
-        self.rows, self.cursor = [], None
-        self.checked_ids.clear()
+        if pause:
+            self.store.set("enabled", False)
         self.dirty = False
         self.dirty_label.clear()
         self.save_button.setEnabled(False)
+        return True
+
+    def save(self):
+        if not self._commit_connection(pause=True):
+            return
+        self.rows, self.cursor = [], None
+        self.checked_ids.clear()
         self._set_connection(self.text("saved"), "ok")
         self.toast.message(self.text("settings_saved_toast"))
         self.refresh()
         self.render()
 
     def change_agent(self, *_):
-        self.store.set("enabled", False)
-        self.agent = self.agents.currentData()
+        target = self.agents.currentData()
+        if target == self.agent:
+            return
+        # Commit pending connection fields and keep each agent's own
+        # enabled/paused state and watches intact.
+        pending = self.dirty
+        if not self._commit_connection(pause=False):
+            combo = self.agents.combo
+            combo.blockSignals(True)
+            combo.setCurrentIndex(max(0, combo.findData(self.agent)))
+            combo.blockSignals(False)
+            self.agents._sync()
+            return
+        if pending:
+            self.toast.message(self.text("settings_saved_toast"))
+        self.agent = target
         self.base_store.set("agent", self.agent)
         self.store = selected_store(self.base_store, self.agent)
-        self.store.set("enabled", False)
         self.rows, self.cursor = [], None
         self.checked_ids.clear()
-        self.filter_key = "all"
+        self.latest_tick = {}
+        self.filter_key = "filter_watching"
         for widget, key in self.translated:
             widget.setText(self.text(key))
-        self._set_connection(self.text("unknown"), "neutral")
+        self._set_connection(self.text("connecting"), "accent")
         self.refresh()
         self.render()
 
@@ -869,6 +895,12 @@ class Window(QMainWindow):
             self.worker.request("refresh")
             self.worker.request("threads")
             self.render()
+
+    def periodic_refresh(self):
+        # Keep names and newly-created sessions current without clearing rows
+        # the user already loaded.
+        if self.worker and not self.loading:
+            self.worker.request("sync")
 
     def load_more(self):
         if self.worker and self.cursor:
@@ -1042,8 +1074,8 @@ class Window(QMainWindow):
             label_text = self.agent_name()
             left = 0
             severity = "unknown"
-            pill = StatusPill(self.text("unknown"), "neutral")
-            amount = self.text("unknown")
+            pill = StatusPill(self.text("quota_pending"), "neutral")
+            amount = self.text("quota_pending")
             unit = ""
             reset = self.text("quota_not_exposed")
             detail = ""
@@ -1197,6 +1229,10 @@ class Window(QMainWindow):
             if self.loading and not self.rows:
                 self.table_empty.set_content(self.text("loading_sessions"), "", theme=self.theme,
                                              icon_name="refresh", action=None)
+            elif self.filter_key == "filter_watching" and self.rows:
+                self.table_empty.set_content(self.text("no_watched_title"), self.text("no_watched_body"),
+                                             theme=self.theme, icon_name="dashboard",
+                                             action=(self.text("all"), lambda: self.set_filter("all")))
             else:
                 self.table_empty.set_content(self.text("no_sessions_title"), self.text("no_sessions_body"),
                                              theme=self.theme, icon_name="dashboard",

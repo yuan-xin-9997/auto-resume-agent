@@ -234,6 +234,7 @@ def test_normalize_rejects_changed_timing_and_error_shapes():
 
 def test_missing_permission_or_question_endpoint_is_explicit():
     backend = OpenCode("http://127.0.0.1:4096")
+    backend.mode = "v1"
 
     def request(path, body=None, params=None):
         if path == "/session/status":

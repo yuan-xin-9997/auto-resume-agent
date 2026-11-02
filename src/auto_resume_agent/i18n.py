@@ -47,10 +47,12 @@ EXTRA = {
     "auto_watch_hint": ('Running and quota-interrupted Codex sessions are watched automatically. Enable recovery and keep original sessions open.', '运行中或因额度耗尽中断的 Codex 会话会自动加入监控。请开启自动恢复并保持原会话打开。', '執行中或額度耗盡中斷的 Codex 對話會自動監控。請啟用恢復並保持原對話開啟。', '実行中・残量不足の Codex セッションを自動監視します。再開を有効にし元のセッションを開いてください。', '실행 중 또는 한도 소진으로 중단된 Codex 세션 자동 감시. 복구를 켜고 원래 세션을 열어 두세요.'),
     "auto_watch_toggle": ('Automatically watch running / quota-exhausted Codex sessions (default on)', '自动监控运行中或因额度耗尽中断的 Codex 会话（默认开启）', '自動監控執行中或額度耗盡中斷的 Codex 對話（預設開啟）', '実行中・残量不足の Codex セッションを自動監視（既定 ON）', '실행 중 / 한도 소진 Codex 세션 자동 감시 (기본 켜짐)'),
     "auto_watched": ("Automatically watched after quota exhaustion", "额度耗尽，已自动加入监控", "額度耗盡，已自動加入監控", "残量不足のため自動監視に追加", "한도 소진으로 자동 감시에 추가됨"),
+    "auto_unwatched": ("Stopped watching a finished session", "会话已完成，已停止监控", "對話已完成，已停止監控", "完了したセッションの監視を停止しました", "완료된 세션 감시를 중지했습니다"),
     "codex_proxy": ("Codex HTTP(S) proxy (optional; e.g. http://127.0.0.1:7890)", "Codex HTTP(S) 代理（可选，如 http://127.0.0.1:7890）", "Codex HTTP(S) 代理（選填，如 http://127.0.0.1:7890）", "Codex HTTP(S) プロキシ（任意、例 http://127.0.0.1:7890）", "Codex HTTP(S) 프록시 (선택, 예: http://127.0.0.1:7890)"),
     "codex_invalid_proxy": ("Enter an HTTP(S) proxy origin with a port, without credentials, path or query.", "请输入带端口的 HTTP(S) 代理地址，不含凭据、路径和查询参数。", "請輸入含連接埠的 HTTP(S) 代理位址，不含憑證、路徑及查詢參數。", "ポート付きの HTTP(S) URL を入力してください。認証情報・パス・クエリは含めないでください。", "포트가 있는 HTTP(S) 주소를 입력하세요. 인증 정보, 경로, 쿼리는 제외하세요."),
     "five_hours": ("5 hours", "5 小时", "5 小時", "5時間", "5시간"),
     "one_week": ("1 week", "一周", "一週", "1週間", "1주"),
+    "one_month": ("1 month", "一个月", "一個月", "1か月", "1개월"),
     "select": ("Select", "选择", "選取", "選択", "선택"),
     "select_all": ("Select all", "全选", "全選", "すべて選択", "모두 선택"),
     "hint": ("Tick sessions, click Watch selected, then enable recovery. Keep the original session open.", "勾选会话并点击监控，再开启自动恢复。请保持原会话打开。", "勾選對話並點擊監控，再開啟自動恢復。請保持原對話開啟。", "セッションにチェックして監視し、自動再開を有効にします。元のセッションを開いておいてください。", "세션을 체크해 감시한 뒤 자동 재개를 켜세요. 원래 세션을 열어 두세요."),
@@ -73,15 +75,19 @@ EXTRA = {
     "opencode_url": ("OpenCode server URL", "OpenCode 服务地址", "OpenCode 服務位址", "OpenCode サーバー URL", "OpenCode 서버 URL"),
     "opencode_directory": ("OpenCode workspace directory (on the server)", "OpenCode 工作目录（服务端路径）", "OpenCode 工作目錄（伺服器路徑）", "OpenCode 作業ディレクトリ（サーバー上）", "OpenCode 작업 폴더 (서버 경로)"),
     "quota_not_exposed": ("Provider quota is not exposed; bounded retries follow known transient errors.", "供应商未提供统一额度查询；仅对明确的临时故障有限重试。", "供應商未提供統一額度查詢；僅對明確的暫時故障有限重試。", "残量 API はありません。明確な一時エラーのみ回数制限付きで再試行します。", "통합 잔여 한도 API가 없습니다. 명확한 일시적 오류만 제한적으로 재시도합니다."),
+    "connecting": ("Connecting…", "连接中…", "連線中…", "接続中…", "연결 중…"),
+    "quota_pending": ("Pending", "待获取", "待取得", "取得待ち", "대기 중"),
     "accepted": ("Accepted · execution not confirmed", "已接受 · 尚未确认执行", "已接受 · 尚未確認執行", "受付済み · 実行未確認", "접수됨 · 실행 미확인"),
     "opencode_invalid_url": ("Enter an HTTP(S) server origin without credentials, path or query.", "请输入不含凭据、路径和查询参数的 HTTP(S) 服务地址。", "請輸入不含憑證、路徑及查詢參數的 HTTP(S) 服務位址。", "認証情報・パス・クエリを含まない HTTP(S) URL を入力してください。", "인증 정보, 경로, 쿼리가 없는 HTTP(S) URL을 입력하세요."),
     "opencode_remote_requires_https": ("Remote OpenCode servers require HTTPS; HTTP is allowed on loopback only.", "远程 OpenCode 服务需使用 HTTPS；HTTP 仅限本机回环地址。", "遠端 OpenCode 服務需使用 HTTPS；HTTP 僅限本機回環位址。", "リモートは HTTPS が必要です。HTTP はループバックのみ使用できます。", "원격 서버에는 HTTPS가 필요합니다. HTTP는 루프백에서만 허용됩니다."),
+    "opencode_connection_failed": ("Cannot reach the OpenCode server at the configured URL. Start OpenCode or check the address and port; recovery will wait.", "无法连接配置的 OpenCode 服务。请启动 OpenCode 或检查地址和端口；恢复将等待。", "無法連線設定的 OpenCode 服務。請啟動 OpenCode 或檢查位址與連接埠；恢復將等待。", "設定された OpenCode サーバーに接続できません。OpenCode を起動するか URL とポートを確認してください。再開は待機します。", "설정한 OpenCode 서버에 연결할 수 없습니다. OpenCode를 실행하거나 주소와 포트를 확인하세요. 복구는 대기합니다."),
+    "opencode_auth_required": ("OpenCode server requires Basic authentication. Set OPENCODE_SERVER_PASSWORD to the server password; recovery will wait.", "OpenCode 服务需要 Basic 认证。请将 OPENCODE_SERVER_PASSWORD 设为服务密码；恢复将等待。", "OpenCode 服務需要 Basic 認證。請將 OPENCODE_SERVER_PASSWORD 設為服務密碼；恢復將等待。", "OpenCode サーバーは Basic 認証が必要です。OPENCODE_SERVER_PASSWORD にサーバーのパスワードを設定してください。再開は待機します。", "OpenCode 서버에 Basic 인증이 필요합니다. OPENCODE_SERVER_PASSWORD에 서버 비밀번호를 설정하세요. 복구는 대기합니다."),
     "compatibility_error": ("Agent interface is incompatible or changed. Automatic sending is blocked; run doctor and update the adapter or agent.", "Agent 接口不兼容或已变化，已停止自动发送；请运行 doctor 并更新适配器或 Agent。", "Agent 介面不相容或已變更，已停止自動傳送；請執行 doctor 並更新轉接器或 Agent。", "Agent インターフェースが非互換または変更されました。自動送信を停止しました。doctor を実行し、アダプターまたは Agent を更新してください。", "Agent 인터페이스가 호환되지 않거나 변경되었습니다. 자동 전송을 중단했습니다. doctor를 실행하고 어댑터 또는 Agent를 업데이트하세요."),
-    "opencode_help": ("Start OpenCode on a known port (opencode serve --hostname 127.0.0.1 --port 4096), or use a running TUI's server port. Set its URL and workspace directory in Settings, select OpenCode, watch sessions and enable recovery.\n\nRemaining provider quota is unknown. Only retryable API errors (429, 408/425, 5xx or transport failures) are retried. Retry-After is respected. Busy/retrying sessions, permissions and questions require waiting or user action. Accepted is not execution confirmation.",
-        "用固定端口启动 OpenCode（opencode serve --hostname 127.0.0.1 --port 4096），或使用已运行 TUI 的服务端口。在设置中填写地址和工作目录，切换到 OpenCode，选择会话并开启恢复。\n\n供应商剩余额度未知。仅重试明确可重试的 API 错误（429、408/425、5xx 或连接故障），并遵守 Retry-After。运行中、自身重试中、权限及提问等待状态不会被打断。已接受不代表已执行。",
-        "使用固定連接埠啟動 OpenCode（opencode serve --hostname 127.0.0.1 --port 4096），或使用已執行 TUI 的伺服器連接埠。在設定中填入位址與工作目錄，切換至 OpenCode，選取對話並啟用恢復。\n\n供應商剩餘額度未知。僅重試明確可重試的 API 錯誤（429、408/425、5xx 或連線故障），並遵守 Retry-After。執行中、自身重試中、權限與提問等待狀態不會被打斷。已接受不代表已執行。",
-        "OpenCode を固定ポートで起動（opencode serve --hostname 127.0.0.1 --port 4096）、または既存 TUI のポートを使用します。設定で URL と作業ディレクトリを指定し、OpenCode を選択して監視と再開を有効にします。\n\n残量は不明です。再試行可能な 429、408/425、5xx、接続エラーのみを対象とし、Retry-After を尊重します。実行中・再試行中・権限や質問の待機中は介入しません。受付は実行確認ではありません。",
-        "OpenCode를 고정 포트로 실행하거나(opencode serve --hostname 127.0.0.1 --port 4096) 기존 TUI의 서버 포트를 사용하세요. 설정에서 URL과 작업 폴더를 지정하고 OpenCode를 선택해 감시와 복구를 켜세요.\n\n잔여 한도는 알 수 없습니다. 재시도 가능한 429, 408/425, 5xx 및 연결 오류만 처리하며 Retry-After를 따릅니다. 실행 중, 자체 재시도 중, 권한 또는 질문 대기 상태에는 개입하지 않습니다. 접수는 실행 확인이 아닙니다."),
+    "opencode_help": ("Start OpenCode on a known port (opencode serve --hostname 127.0.0.1 --port 4096), or use a running TUI's server port. For the 2.x desktop service, enter its URL (usually http://127.0.0.1:28894) and set OPENCODE_SERVER_PASSWORD to the password in ~/.config/opencode/service.json. Set the workspace directory, select OpenCode, watch sessions and enable recovery.\n\nOpenCode 1.19.x does not expose provider quota; 2.x exposes OpenCode Go/Go Plus rolling, weekly and monthly allowance and reset times. Only retryable API errors (429, 408/425, 5xx or transport failures) are retried, plus Go allowance errors scheduled to the reported reset. Retry-After is respected. Busy/retrying sessions, permissions and forms require waiting or user action. Accepted is not execution confirmation.",
+        "用固定端口启动 OpenCode（opencode serve --hostname 127.0.0.1 --port 4096），或使用已运行 TUI 的服务端口。使用 2.x 桌面服务时填写其地址（通常为 http://127.0.0.1:28894），并将 OPENCODE_SERVER_PASSWORD 设为 ~/.config/opencode/service.json 中的密码。填写工作目录，切换到 OpenCode，选择会话并开启恢复。\n\nOpenCode 1.19.x 不暴露供应商额度；2.x 会返回 OpenCode Go/Go Plus 的滚动、每周和每月额度及重置时间。仅重试明确可重试的 API 错误（429、408/425、5xx 或连接故障），Go 额度错误会等到报告的重置时间。遵守 Retry-After。运行中、自身重试中、权限及表单等待状态不会被打断。已接受不代表已执行。",
+        "使用固定連接埠啟動 OpenCode（opencode serve --hostname 127.0.0.1 --port 4096），或使用已執行 TUI 的伺服器連接埠。使用 2.x 桌面服務時填入其位址（通常為 http://127.0.0.1:28894），並將 OPENCODE_SERVER_PASSWORD 設為 ~/.config/opencode/service.json 中的密碼。填寫工作目錄，切換至 OpenCode，選取對話並啟用恢復。\n\nOpenCode 1.19.x 不暴露供應商額度；2.x 會回傳 OpenCode Go/Go Plus 的滾動、每週與每月額度及重設時間。僅重試明確可重試的 API 錯誤（429、408/425、5xx 或連線故障），Go 額度錯誤會等到回報的重設時間。遵守 Retry-After。執行中、自身重試中、權限與表單等待狀態不會被打斷。已接受不代表已執行。",
+        "OpenCode を固定ポートで起動（opencode serve --hostname 127.0.0.1 --port 4096）、または既存 TUI のポートを使用します。2.x デスクトップサービスでは URL（通常 http://127.0.0.1:28894）を入力し、OPENCODE_SERVER_PASSWORD に ~/.config/opencode/service.json のパスワードを設定します。作業ディレクトリを指定し、OpenCode を選択して監視と再開を有効にします。\n\nOpenCode 1.19.x は残量を公開しません。2.x は OpenCode Go/Go Plus のローリング・週次・月次残量とリセット時刻を返します。再試行可能な 429、408/425、5xx、接続エラーのみを対象とし、Go の残量エラーは報告されたリセット時刻まで待機します。Retry-After を尊重します。実行中・再試行中・権限やフォームの待機中は介入しません。受付は実行確認ではありません。",
+        "OpenCode를 고정 포트로 실행하거나(opencode serve --hostname 127.0.0.1 --port 4096) 기존 TUI의 서버 포트를 사용하세요. 2.x 데스크톱 서비스는 URL(보통 http://127.0.0.1:28894)을 입력하고 OPENCODE_SERVER_PASSWORD에 ~/.config/opencode/service.json의 비밀번호를 설정하세요. 작업 폴더를 지정하고 OpenCode를 선택해 감시와 복구를 켜세요.\n\nOpenCode 1.19.x는 잔여 한도를 공개하지 않습니다. 2.x는 OpenCode Go/Go Plus의 롤링·주간·월간 한도와 초기화 시간을 반환합니다. 재시도 가능한 429, 408/425, 5xx 및 연결 오류만 처리하며 Go 한도 오류는 보고된 초기화 시간까지 대기합니다. Retry-After를 따릅니다. 실행 중, 자체 재시도 중, 권한 또는 양식 대기 상태에는 개입하지 않습니다. 접수는 실행 확인이 아닙니다."),
 }
 EXTRA.update({
     "all": ("All", "全部", "全部", "すべて", "전체"),
@@ -105,6 +111,8 @@ EXTRA.update({
     "settings_saved_toast": ("Settings saved", "设置已保存", "設定已儲存", "設定を保存しました", "설정이 저장됨"),
     "no_sessions_title": ("No sessions to show", "没有可显示的会话", "沒有可顯示的對話", "表示できるセッションがありません", "표시할 세션이 없습니다"),
     "no_sessions_body": ("Change the search or filter, or refresh the session list.", "调整搜索或筛选条件，或刷新会话列表。", "調整搜尋或篩選條件，或重新整理對話清單。", "検索またはフィルターを変更するか、セッション一覧を更新してください。", "검색 또는 필터를 변경하거나 세션 목록을 새로 고치세요."),
+    "no_watched_title": ("No watched sessions", "暂无监控会话", "暫無監控對話", "監視中のセッションはありません", "감시 중인 세션이 없습니다"),
+    "no_watched_body": ("Switch to All to choose a session. Running sessions are adopted automatically.", "切换到“全部”选择会话；运行中的会话会自动加入。", "切換至「全部」選擇對話；執行中的對話會自動加入。", "「すべて」に切り替えてセッションを選択してください。実行中のセッションは自動的に監視されます。", "전체로 전환해 세션을 선택하세요. 실행 중인 세션은 자동으로 감시됩니다."),
     "no_activity_title": ("No activity yet", "还没有活动记录", "尚無活動紀錄", "履歴はまだありません", "아직 활동 기록이 없습니다"),
     "no_activity_body": ("Recovery events will appear here after you watch a session.", "监控会话后，恢复过程会显示在这里。", "監控對話後，恢復過程會顯示在這裡。", "セッションを監視すると、再開の履歴がここに表示されます。", "세션을 감시하면 복구 과정이 여기에 표시됩니다."),
     "watched_toast": ("Added to monitoring", "已加入监控", "已加入監控", "監視に追加しました", "감시에 추가됨"),
@@ -113,7 +121,7 @@ EXTRA.update({
     "keeper_title": ("Start the next window when quota is exhausted", "额度用尽时启动新窗口", "額度用盡時啟動新視窗", "上限到達時に次の枠を開始", "한도 소진 시 다음 창 시작"),
     "codex_path_hint": ("Leave blank to detect automatically.", "留空则自动检测。", "留空則自動偵測。", "空欄の場合は自動検出します。", "비우면 자동으로 감지합니다."),
     "codex_proxy_hint": ("Optional HTTP(S) proxy for the Codex process.", "Codex 进程可选的 HTTP(S) 代理。", "Codex 程序可選的 HTTP(S) 代理。", "Codex プロセス用の任意の HTTP(S) プロキシ。", "Codex 프로세스용 선택 HTTP(S) 프록시."),
-    "opencode_url_hint": ("The server origin, for example http://127.0.0.1:4096.", "服务地址，例如 http://127.0.0.1:4096。", "服務位址，例如 http://127.0.0.1:4096。", "サーバーの URL（例 http://127.0.0.1:4096）。", "서버 주소(예: http://127.0.0.1:4096)."),
+    "opencode_url_hint": ("The server origin, for example http://127.0.0.1:4096 (1.19.x) or http://127.0.0.1:28894 (2.x desktop).", "服务地址，例如 http://127.0.0.1:4096（1.19.x）或 http://127.0.0.1:28894（2.x 桌面版）。", "服務位址，例如 http://127.0.0.1:4096（1.19.x）或 http://127.0.0.1:28894（2.x 桌面版）。", "サーバーの URL（例 http://127.0.0.1:4096（1.19.x）、http://127.0.0.1:28894（2.x デスクトップ））。", "서버 주소(예: http://127.0.0.1:4096(1.19.x), http://127.0.0.1:28894(2.x 데스크톱))."),
     "opencode_directory_hint": ("Absolute workspace path on the server.", "服务端的绝对工作目录。", "伺服器上的絕對工作目錄。", "サーバー上の絶対作業パス。", "서버의 절대 작업 폴더."),
     "save_hint": ("Connection changes are applied when you save.", "连接信息在保存后生效。", "連線資訊儲存後生效。", "接続設定は保存後に反映されます。", "연결 설정은 저장 후 적용됩니다."),
     "resets_in": ("Resets in {time}", "重置 · {time}后", "重設 · {time}後", "{time}後にリセット", "{time} 후 초기화"),
@@ -148,4 +156,6 @@ def duration_label(minutes, language="en"):
         return tr("five_hours", language)
     if minutes == 10080:
         return tr("one_week", language)
+    if minutes == 43200:
+        return tr("one_month", language)
     return f"{minutes or '?'} {tr('minutes', language)}"

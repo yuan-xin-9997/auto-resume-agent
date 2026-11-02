@@ -10,7 +10,7 @@ Monitor your AI agent's usage limits and continue the exact interrupted session 
 
 Your agent hits a limit halfway through a task. Auto Resume Agent observes the failed turn, checks the usage windows reported by Codex, and submits a continuation to that session's exact UUID when quota becomes available. It never uses `--last` or types into an agent window.
 
-Supports **Codex CLI/local desktop sessions and OpenCode HTTP server sessions**. Choose the agent in the dashboard or pass `--agent opencode` in the CLI. Claude Code, Gemini CLI and cloud-only Codex sessions are not implemented.
+Supports **Codex CLI/local desktop sessions, OpenCode 1.19.x HTTP server sessions and OpenCode 2.x desktop sessions**. Choose the agent in the dashboard or pass `--agent opencode` in the CLI. Claude Code, Gemini CLI and cloud-only Codex sessions are not implemented.
 
 ![Dashboard with illustrative data](docs/screenshots/dashboard.png)
 
@@ -29,9 +29,11 @@ Supports **Codex CLI/local desktop sessions and OpenCode HTTP server sessions**.
 
 **Important:** `Queued` means the Codex CLI accepted the continuation. It does **not** prove the original conversation resumed. Keep the original session open in Codex. A closed/unloaded session may remain queued until you open it. `Session progressed` means a newer turn exists; it does not attribute that turn to this tool. The app does not launch an unrestricted replacement agent in the background.
 
+The connection banner starts as **Connecting…** until the first check completes; a usage card without data shows **Pending** instead of a bare Unknown.
+
 ## Install
 
-Download the archive matching your OS and processor from [Releases](https://github.com/yuan-xin-9997/auto-resume-agent/releases). Python is included in native bundles; **The agent you use must be installed separately and logged in** (Codex or an OpenCode server). OpenCode integration baseline: **1.19.3**. The tested integration is Codex CLI **0.163.0**. Run `doctor` to check other versions; the app-server interface is experimental and older versions may lack the required methods. `doctor` reports `compatible`, the failing check, and `automatic_sending: blocked` when a method or response field changed. It never submits a continuation.
+Download the archive matching your OS and processor from [Releases](https://github.com/yuan-xin-9997/auto-resume-agent/releases). Python is included in native bundles; **The agent you use must be installed separately and logged in** (Codex or an OpenCode server). OpenCode integration baselines: **1.19.3** (v1 HTTP API) and **2.2.5** (2.x desktop `/api`, experimental). The tested integration is Codex CLI **0.163.0**. Run `doctor` to check other versions; the app-server interface is experimental and older versions may lack the required methods. `doctor` reports `compatible`, the failing check, and `automatic_sending: blocked` when a method or response field changed. It never submits a continuation.
 
 | Platform | Archive | Open |
 | --- | --- | --- |
@@ -57,19 +59,21 @@ shasum -a 256 AutoResumeAgent-v0.5.5-macos-x64.tar.gz
 
 Windows installs to `%LOCALAPPDATA%/Programs/AutoResumeAgent`. Run `Install.cmd` from each new release to update the same location and shortcuts; settings and monitored sessions stay in `%LOCALAPPDATA%/AutoResumeAgent`. `Launch.cmd` remains available for portable use.
 
-Tick session checkboxes to choose batch targets, or use **Select all**. Then click **Watch selected** or **Unwatch**. Checking a box alone does not change monitoring. Selections survive refreshes. Quota windows display **5 hours** and **1 week**, localized into all five languages.
+Tick session checkboxes to choose batch targets, or use **Select all**. Then click **Watch selected** or **Unwatch**. Checking a box alone does not change monitoring. Selections survive refreshes. Quota windows display **5 hours**, **1 week** and, for OpenCode Go/Go Plus, **1 month**, localized into all five languages.
 
 [Local deployment workflow](docs/LOCAL_UPDATES.md)
 
 If the Codex helper shows stream disconnections, configure **Codex HTTP(S) proxy** in Settings (an origin with an explicit port, without credentials), or use `--codex-proxy http://127.0.0.1:7890`. Use your own proxy address; the app does not assume a port. Blank inherits the process environment. The configured proxy applies only to external Codex processes, including the separate window helper.
 
-Settings persist in local SQLite across restarts. Language, feature switches and monitored sessions save immediately; connection fields require **Save settings**. Saving connection settings pauses recovery; enabling recovery again persists that state too.
+Settings persist in local SQLite across restarts. Language, feature switches and monitored sessions save immediately; connection fields require **Save settings**. Saving connection settings pauses the selected agent; enabling recovery again persists that state too. Switching between Codex and OpenCode commits any pending connection fields first and preserves each agent's own enabled/paused state and watch list.
 
 ### Default quota-session monitoring
 
 Running Codex sessions and unfinished sessions whose **latest turn failed with a structured usage-limit error** are automatically added to monitoring by default. Discovery runs in the GUI worker and CLI `watch`/`check`, using paginated session lists and bounded batches, so recent sessions are prioritized without blocking on the entire history. Recovery still follows the existing enable/pause switch and quota checks. Completed, user-interrupted, archived, subagent and five-hour helper sessions are excluded.
 
-Unwatching a session persists an exclusion; automatic discovery will not add it back. Manually watching it removes that exclusion. Legacy cancelled/unwatched sessions retain their exclusion on upgrade. Disable **Automatically watch quota-exhausted Codex sessions** in Settings, or run `auto-resume-agent auto-watch off`; `on` and `status` are also available. Disabling discovery retains existing watches. OpenCode does not expose the same structured Codex quota error and is still watched manually.
+Unwatching a session persists an exclusion; automatic discovery will not add it back. Manually watching it removes that exclusion. Legacy cancelled/unwatched sessions retain their exclusion on upgrade. Disable **Automatically watch quota-exhausted Codex sessions** in Settings, or run `auto-resume-agent auto-watch off`; `on` and `status` are also available. Disabling discovery retains existing watches. OpenCode does not expose the same structured Codex quota error and is still watched manually; 2.x does expose the OpenCode Go/Go Plus allowance for the quota card.
+
+The same completion rule applies to **both Codex and OpenCode**: running sessions and sessions with a waiting/queued/sending/accepted/uncertain recovery stay watched. Completed or interrupted sessions with no outstanding recovery are automatically unwatched without a permanent exclusion; quota-exhausted or queued recoveries stay until they resolve. The dashboard defaults to the **Watching** filter; switch to **All** to choose unmonitored sessions. New running Codex and OpenCode sessions are adopted automatically, and OpenCode usage-limit failures are adopted as well. A manual Unwatch writes an exclusion and blocks re-adoption; automatic completion unwatch does not. The session list syncs every 30 seconds and the Refresh button forces an immediate full refresh.
 
 ### From source
 
@@ -90,18 +94,21 @@ sudo apt-get install libegl1 libgl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 l
 
 ## OpenCode
 
-OpenCode provides an HTTP session API but **no universal remaining-provider-quota API**. Its quota card displays **Unknown**. Recovery uses explicitly retryable API errors and honors `Retry-After` seconds or HTTP dates. Without a header, bounded backoff applies. This is a retry policy, not proof of available quota. The five-submissions-per-session-per-hour cap still applies.
+OpenCode 1.19.x provides an HTTP session API but **no universal remaining-provider-quota API**; its quota card displays **Unknown**. OpenCode 2.x also serves an experimental `/api` surface and exposes the **OpenCode Go / Go Plus** rolling (5-hour), weekly and monthly allowance with reset times. The quota card shows those three windows, and recovery waits for the reported reset of any limited window.
+
+For 1.19.x, recovery uses explicitly retryable `APIError` records and honors `Retry-After` seconds or HTTP dates. For 2.x, recovery uses structured `provider.transport`, `provider.error`, `provider.quota` and `provider.free-limit` records; `provider.quota` from OpenCode Go/Go Plus waits for the reported Go reset. Without a delay, bounded backoff applies. This is a retry policy, not proof of available quota. The five-submissions-per-session-per-hour cap still applies.
 
 ```sh
+# OpenCode 1.19.x server
 opencode serve --hostname 127.0.0.1 --port 4096
 # Optional terminal for permission requests/questions:
 opencode attach http://127.0.0.1:4096
 ```
 
-Alternatively, use the port belonging to an existing OpenCode TUI. In Settings, enter the server URL and absolute **server-side workspace directory**. Choose **OpenCode** on the dashboard, watch `ses_...` sessions and enable recovery. Switching agents or saving connection settings pauses recovery; review the sessions before enabling it again. One GUI monitors its selected agent. Separate CLI processes can monitor both agents with isolated state.
+For the OpenCode 2.x desktop app, use its background service URL (usually `http://127.0.0.1:28894`; the desktop log reports the actual URL). The service requires Basic authentication. Set `OPENCODE_SERVER_PASSWORD` to the `password` value in `~/.config/opencode/service.json` (do not put it in the URL). In Settings, enter the URL and absolute **server-side workspace directory**. Choose **OpenCode** on the dashboard, watch `ses_...` sessions and enable recovery. Switching agents commits pending connection fields and preserves each agent's own enabled/paused state and watch list; saving connection settings pauses the selected agent, so review the sessions before enabling it again. One GUI monitors its selected agent. Separate CLI processes can monitor both agents with isolated state.
 
 ```sh
-auto-resume-agent --agent opencode --opencode-url http://127.0.0.1:4096 --opencode-directory /absolute/project doctor
+auto-resume-agent --agent opencode --opencode-url http://127.0.0.1:28894 --opencode-directory /absolute/project doctor
 auto-resume-agent --agent opencode sessions
 auto-resume-agent --agent opencode usage
 auto-resume-agent --agent opencode add ses_EXACT_SESSION_ID
@@ -112,15 +119,17 @@ auto-resume-agent --agent opencode pause
 
 The URL/directory are saved. CLI commands still default to Codex unless `--agent opencode` is supplied. Basic auth uses `OPENCODE_SERVER_PASSWORD` and optional `OPENCODE_SERVER_USERNAME` environment variables, matching the server. Passwords are never saved in the database or URLs. HTTP is allowed on loopback only; remote servers require HTTPS, or use an SSH tunnel. Requests do not follow redirects or use system HTTP proxies.
 
-Only `APIError` records explicitly marked `isRetryable: true` qualify: HTTP 429, 408/425, 5xx, or a missing status for transport failures. Known structured billing/quota denials, auth failures, cancellations and unknown error types are excluded. Busy sessions, OpenCode's own retry loop, pending permissions/questions, children, archived sessions and staged reverts block recovery. Original provider, model, agent, variant and per-message tool/system/format settings are retained. No permissions are automatically approved.
+Watched sessions are re-evaluated on every check. A running session, or one with a waiting/queued/sending/accepted/uncertain recovery, stays watched. Completed or interrupted sessions with no outstanding recovery are automatically unwatched **without a permanent exclusion**, so a later run can be adopted again. The dashboard defaults to **Watching**, and the session list also syncs every 30 seconds; the Refresh button forces an immediate full refresh.
 
-Continuation uses `POST /session/{id}/prompt_async` on the exact session. **Accepted** acknowledges receipt, not execution. A newer message means progression, not attribution. Ambiguous HTTP results are never automatically resubmitted. The TUI can be closed while the server stays running; requests for permissions or user answers still require you.
+For 1.19.x, only `APIError` records explicitly marked `isRetryable: true` qualify: HTTP 429, 408/425, 5xx, or a missing status for transport failures. Known structured billing/quota denials, auth failures, cancellations and unknown error types are excluded. For 2.x, `provider.transport` and retryable `provider.error` statuses qualify; `provider.quota`/`provider.free-limit` are scheduled only when the API reports a usable reset or retry delay, and known billing denials are excluded. Busy sessions, OpenCode's own retry loop, pending permissions/forms, children, archived sessions and staged reverts block recovery. In 2.x the session's current model, agent and variant are used; no per-message tool/system/format payload is replayed. No permissions are automatically approved.
+
+Continuation uses `POST /session/{id}/prompt_async` on 1.19.x or `POST /api/session/{id}/prompt` with `delivery: queue` and `resume: true` on 2.x. **Accepted** acknowledges receipt, not execution. A newer message means progression, not attribution. Ambiguous HTTP results are never automatically resubmitted. The TUI can be closed while the server stays running; requests for permissions, questions or forms still require you.
 
 Each URL + workspace has separate state under `opencode/`. Existing Codex state stays intact. Use a canonical URL/directory and do not run unrelated recovery tools on those sessions: aliases and independent state roots cannot coordinate sends.
 
-The adapter reads session status and messages in memory to classify failures and retain continuation settings. It does not persist transcripts, raw errors or provider credentials. OpenCode handles provider authentication and model requests. Server Basic authentication is the only password this adapter uses, through the environment.
+The adapter reads session status and messages in memory to classify failures. For 2.x it also reads the OpenCode Go allowance from `/api/experimental/usage/limits`. It does not persist transcripts, raw errors or provider credentials. OpenCode handles provider authentication and model requests. Server Basic authentication is the only password this adapter uses, through the environment.
 
-Integration reference: [official OpenCode server API](https://docs.opencode.ai/docs/server/).
+Integration references: [OpenCode server API](https://docs.opencode.ai/docs/server/) and [OpenCode 2.x API](https://opencode.ai/v2/docs/server).
 
 ## Monitoring cadence and sleep/wake
 
