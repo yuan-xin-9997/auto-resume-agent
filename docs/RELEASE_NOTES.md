@@ -5,12 +5,13 @@
 - Map 2.x `provider.*` errors, block active/permission/form/retry states, and submit through `/api/session/{id}/prompt` with `delivery: queue` and `resume: true`.
 - Add specific `opencode_connection_failed` and `opencode_auth_required` messages; 2.x prompts use the session's current model, agent and variant.
 - Show **Connecting…** during the initial connection check and **Pending** for usage cards without data instead of a bare Unknown state.
+- Give the Refresh button immediate **Refreshing…** feedback, a slow-check hint after 5 seconds, and a timeout hint after 20 seconds when the background monitor is busy or unresponsive.
 - Re-evaluate watched sessions on every check for both Codex and OpenCode: running sessions and sessions with an active recovery stay watched; completed or interrupted sessions with no outstanding work are automatically unwatched without a permanent exclusion; quota-exhausted or queued recoveries remain until resolved.
 - Default the dashboard session filter to Watching; switch to All to select unmonitored sessions.
 - Automatically adopt new running Codex and OpenCode sessions, plus OpenCode usage-limit failures. Manual Unwatch exclusions still block re-adoption; automatic completion unwatch does not.
 - Sync the desktop session list every 30 seconds while preserving loaded rows; the Refresh button still forces an immediate full refresh.
 - Save pending connection fields when switching between Codex and OpenCode, and preserve each agent's own enabled/paused state and watch list. Explicit Save still pauses the selected agent as a safety measure.
-- Validation: 156 automated tests; synthetic real 2.2.5 delivery in a temporary session (deleted afterward); `doctor` against the local desktop service reports known Go quota. The 2.x API remains experimental.
+- Validation: 157 automated tests; synthetic real 2.2.5 delivery in a temporary session (deleted afterward); `doctor` against the local desktop service reports known Go quota. The 2.x API remains experimental.
 
 # Auto Resume Agent v0.5.5
 

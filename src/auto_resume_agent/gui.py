@@ -100,6 +100,7 @@ class Window(QMainWindow):
         self.cursor = None
         self.latest_tick = {}
         self.loading = False
+        self.refreshing = False
         self.filter_key = "filter_watching"
         self.dirty = False
         self.worker = None
@@ -131,6 +132,12 @@ class Window(QMainWindow):
         self.sync_timer = QTimer(self)
         self.sync_timer.timeout.connect(self.periodic_refresh)
         self.sync_timer.start(30000)
+        self.refresh_hint_timer = QTimer(self)
+        self.refresh_hint_timer.setSingleShot(True)
+        self.refresh_hint_timer.timeout.connect(self.refresh_slow)
+        self.refresh_timeout_timer = QTimer(self)
+        self.refresh_timeout_timer.setSingleShot(True)
+        self.refresh_timeout_timer.timeout.connect(self.refresh_timeout)
         if start_worker:
             self.worker = Worker(self.base_store)
             self.loading = True
@@ -850,11 +857,15 @@ class Window(QMainWindow):
     def save(self):
         if not self._commit_connection(pause=True):
             return
+        self._finish_refresh(ok=False)
         self.rows, self.cursor = [], None
         self.checked_ids.clear()
         self._set_connection(self.text("saved"), "ok")
         self.toast.message(self.text("settings_saved_toast"))
-        self.refresh()
+        if self.worker:
+            self.loading = True
+            self.worker.request("refresh")
+            self.worker.request("threads")
         self.render()
 
     def change_agent(self, *_):
@@ -871,6 +882,7 @@ class Window(QMainWindow):
             combo.blockSignals(False)
             self.agents._sync()
             return
+        self._finish_refresh(ok=False)
         if pending:
             self.toast.message(self.text("settings_saved_toast"))
         self.agent = target
@@ -883,18 +895,58 @@ class Window(QMainWindow):
         for widget, key in self.translated:
             widget.setText(self.text(key))
         self._set_connection(self.text("connecting"), "accent")
-        self.refresh()
+        if self.worker:
+            self.loading = True
+            self.worker.request("refresh")
+            self.worker.request("threads")
         self.render()
 
     def help(self):
         QMessageBox.information(self, self.text("help"), self.text("help_text"))
 
     def refresh(self):
-        if self.worker:
-            self.loading = True
-            self.worker.request("refresh")
-            self.worker.request("threads")
-            self.render()
+        if not self.worker:
+            self.toast.message(self.text("refresh_unavailable"))
+            self._set_connection(self.text("refresh_unavailable"), "warning")
+            return
+        if self.refreshing:
+            self.toast.message(self.text("refreshing"))
+            return
+        self.refreshing = True
+        self.loading = True
+        self.toast.message(self.text("refreshing"))
+        self._set_connection(self.text("refreshing"), "accent")
+        self.refresh_hint_timer.start(5000)
+        self.refresh_timeout_timer.start(20000)
+        self.worker.request("refresh")
+        self.worker.request("threads")
+        self.render()
+
+    def refresh_slow(self):
+        if not self.refreshing:
+            return
+        self.toast.message(self.text("refresh_slow"))
+        self._set_connection(self.text("refresh_slow"), "warning")
+
+    def refresh_timeout(self):
+        if not self.refreshing:
+            return
+        self.refreshing = False
+        self.loading = False
+        self.toast.message(self.text("refresh_timeout"))
+        self._set_connection(self.text("refresh_timeout"), "warning")
+
+    def _finish_refresh(self, ok=True):
+        if not self.refreshing:
+            return
+        self.refreshing = False
+        self.refresh_hint_timer.stop()
+        self.refresh_timeout_timer.stop()
+        if ok:
+            self.toast.message(self.text("refreshed"))
+            if self.connection.text() in (self.text("refreshing"), self.text("refresh_slow"),
+                                          self.text("refresh_timeout"), self.text("connecting")):
+                self._set_connection(self.text("ready").replace("Codex", self.agent_name()), "ok")
 
     def periodic_refresh(self):
         # Keep names and newly-created sessions current without clearing rows
@@ -1004,6 +1056,7 @@ class Window(QMainWindow):
                 # Providers can repeat UUIDs within a page as well as across pages.
                 self.rows = list({r["id"]: r for r in ((self.rows if append else []) + rows)}.values())
                 self.cursor = page.get("nextCursor")
+                self._finish_refresh()
             elif kind == "tick":
                 self.latest_tick = data
                 error = data.get("error")
@@ -1014,10 +1067,11 @@ class Window(QMainWindow):
                     if message == error:
                         message = self.text("generic_error").replace("Codex", self.agent_name())
                     self._set_connection(message, "warning", error)
-                else:
+                elif not self.refreshing:
                     self._set_connection(self.text("ready").replace("Codex", self.agent_name()), "ok")
             else:
                 self.loading = False
+                self._finish_refresh(ok=False)
                 if data in ("codex_missing", "another_monitor"):
                     self._set_connection(self.text(data), "warning")
                 elif compatibility_code(data):

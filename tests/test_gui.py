@@ -248,6 +248,35 @@ def test_initial_connection_state_is_connecting(tmp_path):
     window.close()
 
 
+def test_refresh_gives_immediate_feedback_and_timeout_hint(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    window = Window(Store(tmp_path), start_worker=False)
+    requests = []
+
+    class Worker:
+        def request(self, kind, value=None):
+            requests.append((kind, value))
+
+    window.worker = Worker()
+    window.refresh()
+    assert requests == [("refresh", None), ("threads", None)]
+    assert window.refreshing
+    assert window.connection.text() == window.text("refreshing")
+    window.refresh()
+    assert requests == [("refresh", None), ("threads", None)]
+    window.refresh_slow()
+    assert window.connection.text() == window.text("refresh_slow")
+    window.refresh_timeout()
+    assert not window.refreshing
+    assert window.connection.text() == window.text("refresh_timeout")
+    window.refresh_hint_timer.stop()
+    window.refresh_timeout_timer.stop()
+    window.worker = None
+    window.refresh()
+    assert window.connection.text() == window.text("refresh_unavailable")
+    window.close()
+
+
 def test_periodic_refresh_uses_non_destructive_sync(tmp_path):
     app = QApplication.instance() or QApplication([])
     store = Store(tmp_path)

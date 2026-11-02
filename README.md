@@ -29,7 +29,7 @@ Supports **Codex CLI/local desktop sessions, OpenCode 1.19.x HTTP server session
 
 **Important:** `Queued` means the Codex CLI accepted the continuation. It does **not** prove the original conversation resumed. Keep the original session open in Codex. A closed/unloaded session may remain queued until you open it. `Session progressed` means a newer turn exists; it does not attribute that turn to this tool. The app does not launch an unrestricted replacement agent in the background.
 
-The connection banner starts as **Connecting…** until the first check completes; a usage card without data shows **Pending** instead of a bare Unknown.
+The connection banner starts as **Connecting…** until the first check completes; a usage card without data shows **Pending** instead of a bare Unknown. Clicking **Refresh** immediately shows **Refreshing…**; if the background check is slow, the banner changes to a slow or timeout hint instead of leaving the button without feedback.
 
 ## Install
 
