@@ -8,10 +8,10 @@
 - Give the Refresh button immediate **Refreshing…** feedback, a slow-check hint after 5 seconds, and a timeout hint after 20 seconds when the background monitor is busy or unresponsive.
 - Re-evaluate watched sessions on every check for both Codex and OpenCode: running/active sessions and sessions with an active recovery stay watched; completed or interrupted sessions with no outstanding work are automatically unwatched after a short grace period without a permanent exclusion; quota-exhausted or queued recoveries remain until resolved.
 - Default the dashboard session filter to Watching; switch to All to select unmonitored sessions.
-- Automatically adopt new running Codex and OpenCode sessions, plus OpenCode usage-limit failures. OpenCode uses the active-session set so a new turn is re-adopted even when the cached `updatedAt` is unchanged; Refresh forces a discovery pass. Manual Unwatch exclusions still block re-adoption; automatic completion unwatch does not.
+- Automatically adopt new running Codex and OpenCode sessions, plus OpenCode usage-limit failures. OpenCode uses the global active-session set so a new turn is re-adopted even when the cached `updatedAt` is unchanged, including sessions in other workspaces; watched sessions outside the configured page are added to the list. Refresh forces a discovery pass. Manual Unwatch exclusions still block re-adoption; automatic completion unwatch does not.
 - Sync the desktop session list every 30 seconds while preserving loaded rows; the Refresh button still forces an immediate full refresh.
 - Save pending connection fields when switching between Codex and OpenCode, and preserve each agent's own enabled/paused state and watch list. Explicit Save still pauses the selected agent as a safety measure.
-- Validation: 160 automated tests; synthetic real 2.2.5 delivery in a temporary session (deleted afterward); `doctor` against the local desktop service reports known Go quota. The 2.x API remains experimental.
+- Validation: 162 automated tests; synthetic real 2.2.5 delivery in a temporary session (deleted afterward); `doctor` against the local desktop service reports known Go quota. The 2.x API remains experimental.
 
 # Auto Resume Agent v0.5.5
 

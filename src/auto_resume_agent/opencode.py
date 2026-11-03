@@ -243,8 +243,14 @@ class OpenCode:
         self.timeout = timeout
         self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
         self.routes = {}
+        self.directories = {}
         self.mode = None
         self._go_limited = False
+
+    def _remember(self, metadata):
+        cwd = metadata.get("cwd")
+        if isinstance(cwd, str) and cwd:
+            self.directories[metadata["id"]] = cwd
 
     def _headers(self, body):
         headers = {"Accept": "application/json"}
@@ -370,6 +376,7 @@ class OpenCode:
                 if not isinstance(row, dict):
                     raise BackendError("opencode_response_incompatible")
                 metadata = self.metadata(row)
+                self._remember(metadata)
                 if not row.get("parentID") and not metadata["archived"]:
                     data.append(metadata)
             return {"data": data, "nextCursor": None}
@@ -384,6 +391,7 @@ class OpenCode:
         data = []
         for row in value["data"]:
             metadata = self.metadata_v2(row)
+            self._remember(metadata)
             if not metadata["archived"]:
                 data.append(metadata)
         cursor_value = value.get("cursor")
@@ -455,14 +463,18 @@ class OpenCode:
                 raise BackendError("opencode_response_incompatible")
             if row.get("id") != thread_id:
                 raise BackendError("opencode_identity_mismatch")
-            return self.metadata(row)
+            metadata = self.metadata(row)
+            self._remember(metadata)
+            return metadata
         value = self.request("/api/session/" + thread_id)
         row = value.get("data") if isinstance(value, dict) else None
         if not isinstance(row, dict):
             raise BackendError("opencode_response_incompatible")
         if row.get("id") != thread_id:
             raise BackendError("opencode_identity_mismatch")
-        return self.metadata_v2(row)
+        metadata = self.metadata_v2(row)
+        self._remember(metadata)
+        return metadata
 
     def latest(self, thread_id):
         self._detect()
@@ -539,7 +551,8 @@ class OpenCode:
         if not isinstance(active, dict) or not isinstance(active.get("data"), dict):
             raise BackendError("opencode_response_incompatible")
         blocked = thread_id in active["data"]
-        params = {"location[directory]": self.directory} if self.directory else None
+        directory = self.directories.get(thread_id, self.directory)
+        params = {"location[directory]": directory} if directory else None
         try:
             pending = self.request("/api/permission/request", params=params)
         except BackendError as error:

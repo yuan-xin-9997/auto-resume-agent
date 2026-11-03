@@ -149,6 +149,28 @@ def test_legacy_cancelled_unwatched_sessions_remain_excluded(tmp_path):
     assert restarted.records()[0]["state"] == "cancelled"
 
 
+def test_opencode_active_session_outside_configured_workspace_is_adopted(tmp_path):
+    class Backend:
+        def threads(self, cursor=None):
+            return {"data": [{"id": "ses_page123", "name": "page", "source": "opencode",
+                              "archived": False, "updatedAt": NOW}], "nextCursor": None}
+
+        def running(self):
+            return {"ses_other123"}
+
+        def thread(self, tid):
+            return {"id": tid, "name": "other", "cwd": "/other",
+                    "source": "opencode", "archived": False}
+
+        def latest(self, tid):
+            return None
+
+    store = Store(tmp_path, agent="opencode")
+    QuotaDiscovery().scan(store, Backend(), NOW)
+    assert [row["id"] for row in store.watched()] == ["ses_other123"]
+    assert any(event["code"] == "auto_running" for event in store.events())
+
+
 def test_opencode_discovery_ignores_codex_shaped_rows(tmp_path):
     # OpenCode discovery now runs, but only ses_ IDs with source "opencode"
     # qualify. The Codex fixture uses UUIDs and source "cli", so nothing is

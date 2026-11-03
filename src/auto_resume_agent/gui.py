@@ -47,8 +47,27 @@ class Worker:
         self.inbox.put((kind, value))
         self.wake.set()
 
+    @staticmethod
+    def threads_page(backend, store, cursor):
+        page = backend.threads(cursor)
+        if cursor is None and isinstance(page, dict):
+            data = list(page.get("data", []))
+            known = {row.get("id") for row in data if isinstance(row, dict)}
+            for watch in store.watched():
+                if watch["id"] in known:
+                    continue
+                try:
+                    metadata = backend.thread(watch["id"])
+                except (BackendError, OSError, ValueError):
+                    continue
+                if isinstance(metadata, dict) and metadata.get("id") == watch["id"]:
+                    data.append(metadata)
+            page = {**page, "data": data}
+        return page
+
     def run(self):
         backend, engine, configured = None, None, None
+        last_watched = -1
         while not self.stop.is_set():
             wait = 5
             try:
@@ -59,13 +78,16 @@ class Worker:
                     backend = create_backend(self.store, config[0])
                     engine = Engine(selected_store(self.store, config[0]), backend)
                     configured = config
+                    last_watched = -1
                     self.inbox.put(("threads", None))
                 while not self.inbox.empty():
                     kind, value = self.inbox.get_nowait()
                     if kind == "threads":
-                        self.outbox.put((configured, "threads", (backend.threads(value), value is not None)))
+                        self.outbox.put((configured, "threads",
+                                         (self.threads_page(backend, engine.store, value), value is not None)))
                     elif kind == "sync":
-                        self.outbox.put((configured, "threads", (backend.threads(None), True)))
+                        self.outbox.put((configured, "threads",
+                                         (self.threads_page(backend, engine.store, None), True)))
                     elif kind == "refresh":
                         engine.last_usage = 0
                         engine.discovery.head_at = 0
@@ -73,6 +95,15 @@ class Worker:
                 self.store.set("last_error", None)
                 wait = result["delay"]
                 self.outbox.put((configured, "tick", result))
+                watched_now = result.get("watched")
+                if watched_now != last_watched:
+                    try:
+                        page = self.threads_page(backend, engine.store, None)
+                    except (BackendError, OSError, ValueError):
+                        pass
+                    else:
+                        self.outbox.put((configured, "threads", (page, True)))
+                    last_watched = watched_now
             except Exception as error:
                 code = str(error) if isinstance(error, BackendError) else "generic_error"
                 self.store.set("last_error", code)

@@ -7,7 +7,7 @@ pytest.importorskip("PySide6")
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt
 from auto_resume_agent.backends import selected_store
-from auto_resume_agent.gui import Window, STYLE
+from auto_resume_agent.gui import Window, STYLE, Worker
 from auto_resume_agent.store import Store
 from auto_resume_agent.i18n import LANGUAGES, EN, TRANSLATIONS
 
@@ -229,6 +229,21 @@ def test_empty_quota_card_uses_pending_status(tmp_path):
     texts = [label.text() for label in card.findChildren(type(window.connection))]
     assert window.text("quota_pending") in texts
     window.close()
+
+
+def test_threads_page_includes_watched_session_outside_page(tmp_path):
+    store = Store(tmp_path, agent="opencode")
+    store.watch("ses_other123")
+
+    class Backend:
+        def threads(self, cursor=None):
+            return {"data": [{"id": "ses_page123", "name": "page"}], "nextCursor": None}
+
+        def thread(self, tid):
+            return {"id": tid, "name": "other", "cwd": "/other"}
+
+    page = Worker.threads_page(Backend(), store, None)
+    assert {row["id"] for row in page["data"]} == {"ses_page123", "ses_other123"}
 
 
 def test_default_filter_is_watching(tmp_path):
