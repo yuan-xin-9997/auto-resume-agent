@@ -401,6 +401,7 @@ def test_v2_auth_required_and_basic_success(tmp_path, service_v2, monkeypatch):
     state, url = service_v2
     password = "test-secret"
     monkeypatch.delenv("OPENCODE_SERVER_PASSWORD", raising=False)
+    monkeypatch.setattr("auto_resume_agent.opencode.SERVICE_CONFIG", tmp_path / "missing-service.json")
     state["auth"] = "Basic " + base64.b64encode(("opencode:" + password).encode()).decode()
     with pytest.raises(BackendError) as failure:
         OpenCode(url, "/fixture").start()
@@ -410,6 +411,23 @@ def test_v2_auth_required_and_basic_success(tmp_path, service_v2, monkeypatch):
     backend.start()
     assert backend.threads()["data"][0]["id"] == SID
     assert any(header and header.startswith("Basic ") for _, header in state["requests"])
+
+
+def test_v2_loopback_reads_desktop_service_password(tmp_path, service_v2, monkeypatch):
+    state, url = service_v2
+    password = "desktop-secret"
+    monkeypatch.delenv("OPENCODE_SERVER_PASSWORD", raising=False)
+    monkeypatch.delenv("OPENCODE_SERVER_USERNAME", raising=False)
+    state["auth"] = "Basic " + base64.b64encode(("desktop:" + password).encode()).decode()
+    config = tmp_path / "service.json"
+    config.write_text(json.dumps({"username": "desktop", "password": password}), encoding="utf-8")
+    monkeypatch.setattr("auto_resume_agent.opencode.SERVICE_CONFIG", config)
+    backend = OpenCode(url, "/fixture")
+    backend.start()
+    assert backend.threads()["data"][0]["id"] == SID
+    assert any(header and header.startswith("Basic ") for _, header in state["requests"])
+    remote = OpenCode("https://example.com", "/fixture")
+    assert "Authorization" not in remote._headers(None)
 
 
 def test_v2_doctor_reports_known_go_quota(tmp_path, service_v2, monkeypatch, capsys):

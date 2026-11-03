@@ -96,7 +96,7 @@ opencode serve --hostname 127.0.0.1 --port 4096
 opencode attach http://127.0.0.1:4096
 ```
 
-OpenCode 2.x 桌面版使用其后台服务地址（通常为 `http://127.0.0.1:28894`，以桌面日志中的实际地址为准）。该服务需要 Basic 认证：将 `OPENCODE_SERVER_PASSWORD` 设为 `~/.config/opencode/service.json` 中的 `password`（不要把密码写进 URL）。在设置中填写服务地址和**服务端的绝对工作目录**，在仪表盘选择 **OpenCode**，监控 `ses_...` 会话并开启恢复。切换 Agent 会先保存尚未提交的连接字段，并保留各自独立的开启／暂停状态和监控列表；点击“保存设置”会暂停当前所选 Agent 的恢复，核对后再开启。一个 GUI 监控当前所选 Agent，可使用独立 CLI 进程分别监控两者，状态隔离。
+OpenCode 2.x 桌面版使用其后台服务地址（通常为 `http://127.0.0.1:28894`，以桌面日志中的实际地址为准）。该服务需要 Basic 认证：将 `OPENCODE_SERVER_PASSWORD` 设为 `~/.config/opencode/service.json` 中的 `password`（不要把密码写进 URL）；本机回环地址下未设置该环境变量时，ARA 也会自动读取此文件。在设置中填写服务地址和**服务端的绝对工作目录**，在仪表盘选择 **OpenCode**，监控 `ses_...` 会话并开启恢复。切换 Agent 会先保存尚未提交的连接字段，并保留各自独立的开启／暂停状态和监控列表；点击“保存设置”会暂停当前所选 Agent 的恢复，核对后再开启。一个 GUI 监控当前所选 Agent，可使用独立 CLI 进程分别监控两者，状态隔离。
 
 ```sh
 auto-resume-agent --agent opencode --opencode-url http://127.0.0.1:28894 --opencode-directory /absolute/project doctor
@@ -108,7 +108,7 @@ auto-resume-agent --agent opencode watch
 auto-resume-agent --agent opencode pause
 ```
 
-地址和目录会保存。CLI 不指定 `--agent opencode` 时仍默认 Codex。Basic 认证通过与服务端一致的 `OPENCODE_SERVER_PASSWORD` 和可选 `OPENCODE_SERVER_USERNAME` 环境变量提供，密码不写入数据库或 URL。HTTP 仅限本机回环地址，远程服务需 HTTPS，也可使用 SSH 隧道。请求不跟随重定向、不使用系统 HTTP 代理。
+地址和目录会保存。CLI 不指定 `--agent opencode` 时仍默认 Codex。Basic 认证通过与服务端一致的 `OPENCODE_SERVER_PASSWORD` 和可选 `OPENCODE_SERVER_USERNAME` 环境变量提供；本机回环地址未设置密码时自动读取 `~/.config/opencode/service.json`，远程地址不会使用该回退。密码不写入数据库或 URL。HTTP 仅限本机回环地址，远程服务需 HTTPS，也可使用 SSH 隧道。请求不跟随重定向、不使用系统 HTTP 代理。
 
 每次检查都会重新判断监控状态：运行中的会话，或存在 waiting/queued/sending/accepted/uncertain 恢复记录的会话会继续监控；已完成或已中断且没有待处理恢复的会话会自动取消监控，**但不会写入永久排除**，以后重新运行仍可再次加入。仪表盘默认显示**监控中**；会话列表每 30 秒同步一次，点击刷新按钮会立即完整刷新。
 

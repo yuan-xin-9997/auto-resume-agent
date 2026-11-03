@@ -8,11 +8,14 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
 
 from .protocol import BackendError
 from .model import numeric
 
 V2_GO_WINDOWS = (("rolling", "rolling", 300), ("weekly", "weekly", 10080), ("monthly", "monthly", 43200))
+SERVICE_CONFIG = Path.home() / ".config" / "opencode" / "service.json"
+LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
 
 def valid_session(value):
@@ -252,11 +255,38 @@ class OpenCode:
         if isinstance(cwd, str) and cwd:
             self.directories[metadata["id"]] = cwd
 
+    def _service_credentials(self):
+        """Read the local desktop service password only for loopback URLs.
+
+        The desktop service stores its Basic-auth password in
+        ~/.config/opencode/service.json. Reading it here keeps the GUI usable
+        when launched from a shortcut that has no OPENCODE_SERVER_PASSWORD.
+        Never send that local secret to a remote server.
+        """
+        if urllib.parse.urlsplit(self.url).hostname not in LOOPBACK_HOSTS:
+            return None
+        try:
+            data = json.loads(SERVICE_CONFIG.read_text(encoding="utf-8"))
+        except (OSError, ValueError, UnicodeError):
+            return None
+        if not isinstance(data, dict):
+            return None
+        password = data.get("password")
+        if not isinstance(password, str) or not password:
+            return None
+        username = data.get("username")
+        return (username if isinstance(username, str) and username else "opencode", password)
+
     def _headers(self, body):
         headers = {"Accept": "application/json"}
         password = os.environ.get("OPENCODE_SERVER_PASSWORD")
+        username = os.environ.get("OPENCODE_SERVER_USERNAME", "opencode")
+        if not password:
+            local = self._service_credentials()
+            if local:
+                username, password = local
         if password:
-            credentials = os.environ.get("OPENCODE_SERVER_USERNAME", "opencode") + ":" + password
+            credentials = username + ":" + password
             headers["Authorization"] = "Basic " + base64.b64encode(credentials.encode()).decode()
         if body is not None:
             headers["Content-Type"] = "application/json"

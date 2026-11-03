@@ -1,6 +1,6 @@
 # Unreleased — OpenCode 2.x adapter
 
-- Auto-detect OpenCode 2.x `/api` services behind the existing 1.19.x health probe; Basic auth uses `OPENCODE_SERVER_PASSWORD`.
+- Auto-detect OpenCode 2.x `/api` services behind the existing 1.19.x health probe; Basic auth uses `OPENCODE_SERVER_PASSWORD`, with an automatic loopback-only fallback to `~/.config/opencode/service.json` so shortcut launches work without environment setup.
 - Read OpenCode Go/Go Plus rolling, weekly and monthly allowance and reset times from `/api/experimental/usage/limits`; schedule Go quota recovery at the reported reset.
 - Map 2.x `provider.*` errors, block active/permission/form/retry states, and submit through `/api/session/{id}/prompt` with `delivery: queue` and `resume: true`.
 - Add specific `opencode_connection_failed` and `opencode_auth_required` messages; 2.x prompts use the session's current model, agent and variant.
@@ -14,7 +14,7 @@
 - Automatically adopt new running Codex and OpenCode sessions, plus OpenCode usage-limit failures. OpenCode uses the global active-session set so a new turn is re-adopted even when the cached `updatedAt` is unchanged, including sessions in other workspaces; watched sessions outside the configured page are added to the list. Refresh forces a discovery pass. Manual Unwatch exclusions still block re-adoption; automatic completion unwatch does not.
 - Sync the desktop session list every 30 seconds while preserving loaded rows; the Refresh button still forces an immediate full refresh.
 - Save pending connection fields when switching between Codex and OpenCode, and preserve each agent's own enabled/paused state and watch list. Explicit Save still pauses the selected agent as a safety measure.
-- Validation: 178 automated tests; synthetic real 2.2.5 delivery in a temporary session (deleted afterward); a real persisted Codex thread was resumed and retried across two app-server processes, the retry turn completed, and the temporary thread was deleted; a real Codex app-server turn reported interrupted with no completion time was auto-adopted while its thread stayed active; `doctor` against the local desktop service reports known Go quota. The 2.x API remains experimental.
+- Validation: 179 automated tests; synthetic real 2.2.5 delivery in a temporary session (deleted afterward); a real persisted Codex thread was resumed and retried across two app-server processes, the retry turn completed, and the temporary thread was deleted; a real Codex app-server turn reported interrupted with no completion time was auto-adopted while its thread stayed active; `doctor` against the local desktop service reports known Go quota. The 2.x API remains experimental.
 
 # Auto Resume Agent v0.5.5
 

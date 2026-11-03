@@ -105,7 +105,7 @@ opencode serve --hostname 127.0.0.1 --port 4096
 opencode attach http://127.0.0.1:4096
 ```
 
-For the OpenCode 2.x desktop app, use its background service URL (usually `http://127.0.0.1:28894`; the desktop log reports the actual URL). The service requires Basic authentication. Set `OPENCODE_SERVER_PASSWORD` to the `password` value in `~/.config/opencode/service.json` (do not put it in the URL). In Settings, enter the URL and absolute **server-side workspace directory**. Choose **OpenCode** on the dashboard, watch `ses_...` sessions and enable recovery. Switching agents commits pending connection fields and preserves each agent's own enabled/paused state and watch list; saving connection settings pauses the selected agent, so review the sessions before enabling it again. One GUI monitors its selected agent. Separate CLI processes can monitor both agents with isolated state.
+For the OpenCode 2.x desktop app, use its background service URL (usually `http://127.0.0.1:28894`; the desktop log reports the actual URL). The service requires Basic authentication. Set `OPENCODE_SERVER_PASSWORD` to the `password` value in `~/.config/opencode/service.json` (do not put it in the URL); for a loopback URL, ARA also reads that file automatically when the variable is unset. In Settings, enter the URL and absolute **server-side workspace directory**. Choose **OpenCode** on the dashboard, watch `ses_...` sessions and enable recovery. Switching agents commits pending connection fields and preserves each agent's own enabled/paused state and watch list; saving connection settings pauses the selected agent, so review the sessions before enabling it again. One GUI monitors its selected agent. Separate CLI processes can monitor both agents with isolated state.
 
 ```sh
 auto-resume-agent --agent opencode --opencode-url http://127.0.0.1:28894 --opencode-directory /absolute/project doctor
@@ -117,7 +117,7 @@ auto-resume-agent --agent opencode watch
 auto-resume-agent --agent opencode pause
 ```
 
-The URL/directory are saved. CLI commands still default to Codex unless `--agent opencode` is supplied. Basic auth uses `OPENCODE_SERVER_PASSWORD` and optional `OPENCODE_SERVER_USERNAME` environment variables, matching the server. Passwords are never saved in the database or URLs. HTTP is allowed on loopback only; remote servers require HTTPS, or use an SSH tunnel. Requests do not follow redirects or use system HTTP proxies.
+The URL/directory are saved. CLI commands still default to Codex unless `--agent opencode` is supplied. Basic auth uses `OPENCODE_SERVER_PASSWORD` and optional `OPENCODE_SERVER_USERNAME` environment variables, matching the server. For a **loopback** OpenCode 2.x desktop service, when `OPENCODE_SERVER_PASSWORD` is unset, ARA reads the password from `~/.config/opencode/service.json`; this fallback is disabled for remote URLs. Passwords are never saved in the database or URLs. HTTP is allowed on loopback only; remote servers require HTTPS, or use an SSH tunnel. Requests do not follow redirects or use system HTTP proxies.
 
 Watched sessions are re-evaluated on every check. A running session, or one with a waiting/queued/sending/accepted/uncertain recovery, stays watched. Completed or interrupted sessions with no outstanding recovery are automatically unwatched **without a permanent exclusion**, so a later run can be adopted again. The dashboard defaults to **Watching**, and the session list also syncs every 30 seconds; the Refresh button forces an immediate full refresh.
 
