@@ -10,6 +10,7 @@ from .discovery import QuotaDiscovery
 
 MESSAGE = "Continue the unfinished work from this interruption. Respect all existing instructions and stop if user input or approval is required."
 ACTIVE_RECOVERY_STATES = ("waiting", "sending", "queued", "accepted", "uncertain")
+FINISHED_GRACE = 120
 
 
 class Engine:
@@ -18,6 +19,7 @@ class Engine:
         self.snapshot = {"available": None, "windows": [], "reset_at": None}
         self.last_usage = 0
         self.discovery = QuotaDiscovery()
+        self.finished = {}
         self.last_tick = None
 
     def tick(self):
@@ -67,10 +69,11 @@ class Engine:
             discovery_error = True
         except (KeyError, TypeError, ValueError):
             discovery_error = True
+        active_running = getattr(self.discovery, "running", set())
         watched = self.store.watched()
         problems = []
         quota_interrupted = False
-        finished = set()
+        drop_now = set()
         for watch in watched:
             tid = watch["id"]
             try:
@@ -81,18 +84,25 @@ class Engine:
                 # Archived, imported, and subagent threads never receive automatic messages.
                 source = metadata.get("source")
                 if metadata.get("archived") or not isinstance(source, str) or source not in ("cli", "vscode", "appServer", "exec", "opencode"):
-                    finished.add(tid)
+                    drop_now.add(tid)
                     continue
                 turn = self.backend.latest(tid)
                 if not isinstance(turn, dict):
                     if turn is not None:
                         raise ValueError("turn")
+                    self.finished.pop(tid, None)
                     continue
                 if not getattr(self.backend, "valid_turn_id", valid_id)(turn.get("id")):
+                    self.finished.pop(tid, None)
                     continue
                 self._reconcile(tid, turn, records)
                 if turn.get("status") in ("completed", "interrupted"):
-                    finished.add(tid)
+                    if tid in active_running:
+                        self.finished.pop(tid, None)
+                    else:
+                        self.finished.setdefault(tid, now)
+                else:
+                    self.finished.pop(tid, None)
                 kind = category(turn)
                 quota_interrupted |= kind == "usage_limit"
                 completed = turn.get("completedAt")
@@ -126,12 +136,23 @@ class Engine:
                 problems.append(tid)
             except (KeyError, TypeError, ValueError):
                 problems.append(tid)
-        # Keep running sessions and sessions with a pending/uncertain recovery.
-        # Finished sessions with no outstanding work should not stay watched.
+        # Keep running/active sessions and sessions with a pending recovery.
+        # Finished sessions are unwatched only after a short grace period, so
+        # a new turn does not flicker out of monitoring at every boundary.
         active = {r["thread_id"] for r in self.store.records() if r["state"] in ACTIVE_RECOVERY_STATES}
-        for tid in finished:
+        watched_now = {r["id"] for r in self.store.watched()}
+        for tid in list(self.finished):
+            if tid not in watched_now:
+                del self.finished[tid]
+        for tid in drop_now:
             if tid not in active and self.store.unwatch_auto(tid):
                 self.store.event(tid, "auto_unwatched")
+        for tid, since in list(self.finished.items()):
+            if tid in active or now - since < FINISHED_GRACE:
+                continue
+            if self.store.unwatch_auto(tid):
+                self.store.event(tid, "auto_unwatched")
+            del self.finished[tid]
         pending = [r["due"] for r in self.store.records() if r["state"] == "waiting" and r["due"] > self.clock()]
         if keeper is not None:
             keeper = window_keeper.tick(self.store, self.backend, self.snapshot, self.clock(),

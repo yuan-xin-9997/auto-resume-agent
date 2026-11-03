@@ -50,6 +50,9 @@ def test_finished_session_is_unwatched_without_blocking_rediscovery(tmp_path):
     backend.turns[tid] = {"id": str(uuid.uuid4()), "status": "completed", "completedAt": NOW + 10}
     engine.clock = lambda: NOW + 30
     engine.tick()
+    assert [row["id"] for row in store.watched()] == [tid]
+    engine.clock = lambda: NOW + 150
+    engine.tick()
     assert not store.watched()
     with store.db() as db:
         assert db.execute("SELECT count(*) FROM watch_exclusions").fetchone()[0] == 0
@@ -67,9 +70,12 @@ def test_codex_running_session_is_readopted_without_updated_at_change(tmp_path):
     backend.turns[tid] = {"id": str(uuid.uuid4()), "status": "completed", "completedAt": NOW + 10}
     engine.clock = lambda: NOW + 30
     engine.tick()
+    assert [row["id"] for row in store.watched()] == [tid]
+    engine.clock = lambda: NOW + 150
+    engine.tick()
     assert not store.watched()
     backend.turns[tid] = {"id": str(uuid.uuid4()), "status": "inProgress"}
-    engine.clock = lambda: NOW + 60
+    engine.clock = lambda: NOW + 180
     engine.tick()
     assert [row["id"] for row in store.watched()] == [tid]
 
@@ -91,7 +97,7 @@ def test_finished_session_with_active_recovery_stays_watched(tmp_path):
     assert [row["id"] for row in store.watched()] == [tid]
     with store.db() as db:
         db.execute("UPDATE recoveries SET state='progressed' WHERE id='fixture'")
-    engine.clock = lambda: NOW + 60
+    engine.clock = lambda: NOW + 150
     engine.tick()
     assert not store.watched()
 

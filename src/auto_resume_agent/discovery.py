@@ -12,6 +12,7 @@ class QuotaDiscovery:
         self.cursor = None
         self.head_at = 0
         self.seen = {}
+        self.running = set()
 
     def scan(self, store, backend, now):
         if not callable(getattr(backend, "threads", None)):
@@ -54,6 +55,7 @@ class QuotaDiscovery:
                 if is_compatibility_error(error):
                     raise
                 running = set()
+        self.running = running
         # Running sessions are adopted from the active set, not only from
         # updatedAt. A completed session can start a new turn without its
         # cached updatedAt changing before the next scan.

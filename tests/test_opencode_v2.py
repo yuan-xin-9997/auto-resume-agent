@@ -295,6 +295,8 @@ def test_v2_engine_waits_for_go_reset_and_submits_once(tmp_path, service_v2):
     state["message"] = finished
     engine.clock = lambda: NOW + 600
     engine.tick()
+    engine.clock = lambda: NOW + 720
+    engine.tick()
     assert not store.watched()
 
 
@@ -336,16 +338,33 @@ def test_v2_running_session_is_readopted_after_auto_unwatch(tmp_path, service_v2
     state["message"] = idle(outcome="succeeded")
     engine.clock = lambda: NOW + 30
     engine.tick()
+    assert [row["id"] for row in store.watched()] == [SID]
+    engine.clock = lambda: NOW + 150
+    engine.tick()
     assert not store.watched()
     state["active"] = {SID: {"type": "running"}}
     state["message"] = {"id": "msg_v2run456", "type": "assistant",
-                        "time": {"created": (NOW + 50) * 1000}, "agent": "build",
+                        "time": {"created": (NOW + 170) * 1000}, "agent": "build",
                         "model": {"id": "deepseek-v4.1-flash", "providerID": "opencode-go"},
                         "content": []}
-    engine.clock = lambda: NOW + 60
+    engine.clock = lambda: NOW + 180
     engine.tick()
     assert [row["id"] for row in store.watched()] == [SID]
     assert sum(event["code"] == "auto_running" for event in store.events()) >= 2
+
+
+def test_v2_active_session_survives_completed_latest_status(tmp_path, service_v2):
+    state, url = service_v2
+    state["active"] = {SID: {"type": "running"}}
+    store, backend = unwatched(tmp_path, url)
+    backend.latest = lambda tid: {"id": "msg_v2done123", "status": "completed",
+                                  "completedAt": NOW * 1000}
+    engine = Engine(store, backend, lambda: NOW)
+    engine.tick()
+    assert [row["id"] for row in store.watched()] == [SID]
+    engine.clock = lambda: NOW + 150
+    engine.tick()
+    assert [row["id"] for row in store.watched()] == [SID]
 
 
 def test_v2_quota_failure_is_adopted_automatically(tmp_path, service_v2):
