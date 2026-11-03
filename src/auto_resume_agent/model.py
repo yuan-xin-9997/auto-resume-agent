@@ -5,6 +5,21 @@ def numeric(value):
     return type(value) in (int, float) and math.isfinite(value)
 
 
+ACTIVE_GRACE = 180
+
+
+def active_turn(turn, updated_at, now):
+    """Codex Desktop can report an actively updated turn as interrupted."""
+    if not isinstance(turn, dict):
+        return False
+    if turn.get("status") == "inProgress":
+        return True
+    if turn.get("status") != "interrupted" or numeric(turn.get("completedAt")):
+        return False
+    return (numeric(updated_at) and numeric(now)
+            and 0 <= now - updated_at <= ACTIVE_GRACE)
+
+
 def usage(value):
     result = {"available": None, "reset_at": None, "windows": []}
     if not isinstance(value, dict):

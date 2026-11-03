@@ -1,7 +1,7 @@
 """Bounded discovery of running or quota-exhausted Codex/OpenCode sessions."""
 import time
 
-from .model import category, numeric
+from .model import active_turn, category, numeric
 from .protocol import BackendError, is_compatibility_error
 from .store import valid_id
 
@@ -127,12 +127,12 @@ class QuotaDiscovery:
                 continue
             try:
                 turn = backend.latest(tid)
+                is_running = active_turn(turn, row.get("updatedAt"), now)
                 if (isinstance(turn, dict) and valid_turn(turn.get("id"))
-                        and (turn.get("status") == "inProgress" or
-                             (category(turn) == "usage_limit" and numeric(turn.get("completedAt"))))
+                        and (is_running or (category(turn) == "usage_limit" and numeric(turn.get("completedAt"))))
                         and store.get("auto_watch_quota", True)):
                     if store.watch(tid, automatic=True):
-                        store.event(tid, "auto_running" if turn.get("status") == "inProgress" else "auto_watched")
+                        store.event(tid, "auto_running" if is_running else "auto_watched")
                 self.seen[tid] = row.get("updatedAt")
             except BackendError as error:
                 if is_compatibility_error(error):

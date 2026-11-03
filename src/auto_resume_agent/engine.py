@@ -1,7 +1,7 @@
 import hashlib
 import time
 
-from .model import usage, category, delay, next_delay, numeric
+from .model import active_turn, usage, category, delay, next_delay, numeric
 from .store import engine_lock, valid_id
 from .protocol import BackendError, is_compatibility_error
 from .backends import snapshot
@@ -95,6 +95,8 @@ class Engine:
                 if not getattr(self.backend, "valid_turn_id", valid_id)(turn.get("id")):
                     self.finished.pop(tid, None)
                     continue
+                if active_turn(turn, metadata.get("updatedAt"), now):
+                    turn = {**turn, "status": "inProgress"}
                 self._reconcile(tid, turn, records)
                 if turn.get("status") in ("completed", "interrupted"):
                     if tid in active_running:
