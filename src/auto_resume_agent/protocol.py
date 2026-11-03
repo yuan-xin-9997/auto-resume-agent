@@ -118,7 +118,8 @@ def command(executable=None):
 
 
 class Codex:
-    METHODS = {"initialize", "account/rateLimits/read", "thread/list", "thread/read", "thread/turns/list"}
+    METHODS = {"initialize", "account/rateLimits/read", "thread/list", "thread/read",
+               "thread/turns/list", "thread/resume", "turn/start"}
 
     def __init__(self, executable=None, timeout=20, proxy=None):
         self.argv = command(executable)
@@ -273,6 +274,26 @@ class Codex:
         if not isinstance(rows[0], dict) or not valid_id(rows[0].get("id")):
             raise BackendError("codex_response_incompatible")
         return rows[0]
+
+    def start_turn(self, thread_id, message):
+        """User-initiated retry for a queued Codex task.
+
+        This starts a turn on the exact stored thread. Approval requests are
+        not auto-approved; tasks requiring them still need the original UI.
+        """
+        if not valid_id(thread_id):
+            return "uncertain"
+        try:
+            self.call("thread/resume", {"threadId": thread_id})
+            value = self.call("turn/start", {
+                "threadId": thread_id,
+                "input": [{"type": "text", "text": message}],
+                "approvalPolicy": "never",
+            })
+        except BackendError:
+            return "uncertain"
+        turn = value.get("turn") if isinstance(value, dict) else None
+        return "accepted" if isinstance(turn, dict) and valid_id(turn.get("id")) else "uncertain"
 
     def submit(self, thread_id, message):
         if not valid_id(thread_id):

@@ -195,7 +195,8 @@ def test_write_client_rejects_foreign_threads_and_multiple_turns():
     client.started = True
     with pytest.raises(BackendError):
         client.call("turn/start", {"threadId": client.owned, "input": [{"type": "text", "text": PROMPT}]})
-    assert "turn/start" not in Codex.METHODS
+    assert "thread/start" not in Codex.METHODS
+    assert "thread/delete" not in Codex.METHODS
 
 
 @pytest.mark.parametrize("mode", ["success", "disable", "timeout"])

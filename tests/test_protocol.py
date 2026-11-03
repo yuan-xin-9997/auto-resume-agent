@@ -110,6 +110,43 @@ def test_json_rpc_errors_are_classified_without_raw_text(code, expected):
         backend.call("thread/turns/list")
 
 
+def test_codex_retry_resumes_thread_without_auto_approval():
+    backend = object.__new__(Codex)
+    calls = []
+    turn_id = str(uuid.uuid4())
+
+    def call(method, params=None):
+        calls.append((method, params))
+        return {"turn": {"id": turn_id}} if method == "turn/start" else {}
+
+    backend.call = call
+    tid = str(uuid.uuid4())
+    assert backend.start_turn(tid, "continue") == "accepted"
+    assert [method for method, _ in calls] == ["thread/resume", "turn/start"]
+    assert calls[0][1] == {"threadId": tid}
+    assert calls[1][1]["threadId"] == tid
+    assert calls[1][1]["input"] == [{"type": "text", "text": "continue"}]
+    assert calls[1][1]["approvalPolicy"] == "never"
+
+
+@pytest.mark.parametrize("reply,error", [
+    ({"turn": {}}, None),
+    ({}, None),
+    (None, BackendError("protocol_error")),
+])
+def test_codex_retry_unconfirmed_results_are_uncertain(reply, error):
+    backend = object.__new__(Codex)
+
+    def call(method, params=None):
+        if error:
+            raise error
+        return reply
+
+    backend.call = call
+    assert backend.start_turn(str(uuid.uuid4()), "continue") == "uncertain"
+    assert backend.start_turn("not-a-uuid", "continue") == "uncertain"
+
+
 def test_codex_response_shape_changes_are_explicit():
     backend = object.__new__(Codex)
     backend.call = lambda *args, **kwargs: {"data": "not-a-list"}

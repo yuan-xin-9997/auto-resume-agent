@@ -25,7 +25,9 @@ class FakeCodex:
                      "error": {"codexErrorInfo": "usageLimitExceeded"}}
         self.quota = quota()
         self.sent = []
+        self.started = []
         self.result = "queued"
+        self.start_result = "accepted"
 
     def usage(self):
         return copy.deepcopy(self.quota)
@@ -39,6 +41,10 @@ class FakeCodex:
     def submit(self, tid, message):
         self.sent.append((tid, message))
         return self.result
+
+    def start_turn(self, tid, message):
+        self.started.append((tid, message))
+        return self.start_result
 
 
 @pytest.fixture
@@ -239,7 +245,7 @@ def test_no_transcripts_or_credentials_persisted(system):
 def test_protocol_write_method_rejected():
     backend = object.__new__(Codex)
     with pytest.raises(BackendError):
-        backend.call("turn/start")
+        backend.call("thread/delete")
 
 
 def test_unknown_window_keeps_whole_quota_snapshot_unknown(system):
@@ -330,3 +336,80 @@ def test_cancel_or_unwatch_cancels_claimed_record(system):
     store.set("enabled", True)
     engine.tick()
     assert not backend.sent
+
+
+def test_queued_timeout_needs_attention(system):
+    store, backend, engine = system
+    engine.tick()
+    assert store.records()[0]["state"] == "queued"
+    engine.clock = lambda: NOW + 601
+    engine.tick()
+    record = store.records()[0]
+    assert record["state"] == "attention" and record["detail"] == "queued_stale"
+    assert any(event["code"] == "queued_stale" for event in store.events())
+    engine.clock = lambda: NOW + 900
+    engine.tick()
+    assert [row["id"] for row in store.watched()] == [TID]
+    assert store.records()[0]["state"] == "attention"
+
+
+def test_confirmed_retry_starts_exact_queued_thread(system):
+    store, backend, engine = system
+    engine.tick()
+    record = store.records()[0]
+    engine.clock = lambda: NOW + 601
+    engine.tick()
+    result = engine.retry(record["id"])
+    assert result == {"state": "accepted"}
+    assert [item[0] for item in backend.started] == [TID]
+    assert record["id"] in backend.started[0][1]
+    updated = store.records()[0]
+    assert updated["state"] == "accepted" and updated["detail"] == "retry"
+    assert any(event["code"] == "retry_sent" for event in store.events())
+    # A direct retry is one-shot; a second click cannot resend blindly.
+    assert engine.retry(record["id"]) == {"error": "retry_not_allowed"}
+    assert len(backend.started) == 1
+
+
+def test_retry_refuses_superseded_queued_turn(system):
+    store, backend, engine = system
+    engine.tick()
+    record = store.records()[0]
+    backend.turn = {"id": str(uuid.uuid4()), "status": "completed", "completedAt": NOW}
+    assert engine.retry(record["id"]) == {"state": "superseded"}
+    assert not backend.started
+    assert store.records()[0]["state"] == "superseded"
+
+
+def test_retry_uncertain_or_unavailable_keeps_state_safe(system):
+    store, backend, engine = system
+    engine.tick()
+    record = store.records()[0]
+    backend.start_result = "uncertain"
+    assert engine.retry(record["id"]) == {"state": "uncertain"}
+    updated = store.records()[0]
+    assert updated["state"] == "uncertain" and updated["detail"] == "delivery_unknown"
+    assert any(event["code"] == "uncertain" for event in store.events())
+
+    backend.start_turn = None
+    with store.db() as db:
+        db.execute("UPDATE recoveries SET state='queued',detail='open_session' WHERE id=?", (record["id"],))
+    assert engine.retry(record["id"]) == {"error": "retry_unavailable"}
+    assert store.records()[0]["state"] == "queued"
+
+
+@pytest.mark.parametrize("state", ["queued", "attention"])
+def test_cancel_or_unwatch_stale_queued_record(system, state):
+    store, backend, engine = system
+    store.set("enabled", False)
+    engine.tick()
+    record = store.records()[0]
+    with store.db() as db:
+        db.execute("UPDATE recoveries SET state=?,detail='queued_stale' WHERE id=?", (state, record["id"]))
+    assert store.cancel(record["id"]) is True
+    assert store.records()[0]["state"] == "cancelled"
+
+    with store.db() as db:
+        db.execute("UPDATE recoveries SET state=?,detail='queued_stale' WHERE id=?", (state, record["id"]))
+    store.unwatch(TID)
+    assert store.records()[0]["state"] == "cancelled"

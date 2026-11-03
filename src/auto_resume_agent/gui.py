@@ -91,6 +91,8 @@ class Worker:
                     elif kind == "refresh":
                         engine.last_usage = 0
                         engine.discovery.head_at = 0
+                    elif kind == "retry":
+                        self.outbox.put((configured, "retry", engine.retry(value)))
                 result = engine.tick()
                 self.store.set("last_error", None)
                 wait = result["delay"]
@@ -429,8 +431,11 @@ class Window(QMainWindow):
         self.watch_button = self.button("watch", self.watch_selected)
         self.unwatch_button = self.button("unwatch", self.unwatch_selected)
         self.unwatch_button.setObjectName("ghost")
+        self.retry_button = self.button("retry_queued", self.retry_selected)
+        self.retry_button.setObjectName("ghost")
         head.addWidget(self.watch_button)
         head.addWidget(self.unwatch_button)
+        head.addWidget(self.retry_button)
         card.box.addLayout(head)
 
         self.session_hint = self.label("hint", "muted", wrap=True)
@@ -999,7 +1004,9 @@ class Window(QMainWindow):
         if self.filter_key == "all":
             return rows
         watched = {r["id"] for r in self.store.watched()}
-        records = {r["thread_id"]: r for r in self.store.records()}
+        records = {}
+        for record in self.store.records():
+            records.setdefault(record["thread_id"], record)
         if self.filter_key == "filter_watching":
             return [row for row in rows if row["id"] in watched]
         if self.filter_key == "filter_pending":
@@ -1031,6 +1038,15 @@ class Window(QMainWindow):
             self.checked_ids.difference_update(visible)
         self.render()
 
+    def retry_records(self):
+        latest = {}
+        for record in self.store.records():
+            latest.setdefault(record["thread_id"], record)
+        selected = set(self.selected())
+        return [record for tid, record in latest.items() if tid in selected and (
+            record["state"] == "queued"
+            or (record["state"] == "attention" and record.get("detail") == "queued_stale"))]
+
     def selection_controls(self):
         self.select_all.blockSignals(True)
         visible = {row["id"] for row in self.visible_rows()}
@@ -1039,6 +1055,7 @@ class Window(QMainWindow):
         self.select_all.setEnabled(bool(visible))
         self.watch_button.setEnabled(bool(self.selected()))
         self.unwatch_button.setEnabled(bool(self.selected()))
+        self.retry_button.setEnabled(bool(self.retry_records()))
         self.session_count.setText(str(len(visible)) if visible else "")
         self.session_count.setToolTip(self.text("sessions") if visible else "")
 
@@ -1059,6 +1076,22 @@ class Window(QMainWindow):
         if selected:
             self.toast.message(self.text("unwatched_toast"))
         self.render()
+
+    def retry_selected(self):
+        records = self.retry_records()
+        if not records or not self.worker:
+            self.toast.message(self.text("retry_unavailable"))
+            return
+        answer = QMessageBox.question(
+            self, self.text("retry_queued"), self.text("retry_confirm"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No)
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        for record in records:
+            self.worker.request("retry", record["id"])
+        self.retry_button.setEnabled(False)
+        self.toast.message(self.text("retry_sent"))
 
     def toggle_enabled(self):
         self.store.set("enabled", not self.store.get("enabled", False))
@@ -1089,6 +1122,24 @@ class Window(QMainWindow):
                 self.rows = list({r["id"]: r for r in ((self.rows if append else []) + rows)}.values())
                 self.cursor = page.get("nextCursor")
                 self._finish_refresh()
+            elif kind == "retry":
+                result = data if isinstance(data, dict) else {}
+                state = result.get("state")
+                error = result.get("error")
+                if state == "accepted":
+                    self.toast.message(self.text("retry_accepted"))
+                elif state == "uncertain":
+                    self.toast.message(self.text("retry_failed"))
+                elif state == "superseded":
+                    self.toast.message(self.text("superseded"))
+                else:
+                    key = str(error or "")
+                    message = self.text(key)
+                    if message == key:
+                        message = self.text("retry_failed")
+                    self.toast.message(message)
+                if self.worker:
+                    self.worker.request("refresh")
             elif kind == "tick":
                 self.latest_tick = data
                 error = data.get("error")

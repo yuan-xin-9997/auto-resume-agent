@@ -11,6 +11,7 @@ from .discovery import QuotaDiscovery
 MESSAGE = "Continue the unfinished work from this interruption. Respect all existing instructions and stop if user input or approval is required."
 ACTIVE_RECOVERY_STATES = ("waiting", "sending", "queued", "accepted", "uncertain")
 FINISHED_GRACE = 120
+QUEUED_TIMEOUT = 600
 
 
 class Engine:
@@ -27,6 +28,35 @@ class Engine:
             if not owned:
                 return {"error": "another_monitor", "delay": 5, "usage": self.snapshot}
             return self._tick()
+
+    def retry(self, record_id):
+        """User-confirmed direct start for a queued Codex recovery."""
+        with engine_lock(self.store.root) as owned:
+            if not owned:
+                return {"error": "another_monitor"}
+            record = next((r for r in self.store.records() if r["id"] == record_id), None)
+            if record is None:
+                return {"error": "retry_not_found"}
+            retryable = (record["state"] == "queued"
+                         or (record["state"] == "attention" and record.get("detail") == "queued_stale"))
+            if not retryable:
+                return {"error": "retry_not_allowed"}
+            start = getattr(self.backend, "start_turn", None)
+            if not callable(start):
+                return {"error": "retry_unavailable"}
+            try:
+                latest = self.backend.latest(record["thread_id"])
+            except BackendError as error:
+                return {"error": str(error)}
+            if (not isinstance(latest, dict) or latest.get("id") != record["turn_id"]
+                    or category(latest) != record["kind"]):
+                self.store.update(record["id"], "superseded")
+                return {"state": "superseded"}
+            result = start(record["thread_id"], MESSAGE + "\n[Auto Resume Agent: " + record["id"] + "]")
+            state = "accepted" if result == "accepted" else "uncertain"
+            self.store.update(record["id"], state, "retry" if state == "accepted" else "delivery_unknown")
+            self.store.event(record["thread_id"], "retry_sent" if state == "accepted" else "uncertain")
+            return {"state": state}
 
     def _tick(self):
         now = self.clock()
@@ -141,7 +171,9 @@ class Engine:
         # Keep running/active sessions and sessions with a pending recovery.
         # Finished sessions are unwatched only after a short grace period, so
         # a new turn does not flicker out of monitoring at every boundary.
-        active = {r["thread_id"] for r in self.store.records() if r["state"] in ACTIVE_RECOVERY_STATES}
+        active = {r["thread_id"] for r in self.store.records()
+                  if r["state"] in ACTIVE_RECOVERY_STATES
+                  or (r["state"] == "attention" and r.get("detail") == "queued_stale")}
         watched_now = {r["id"] for r in self.store.watched()}
         for tid in list(self.finished):
             if tid not in watched_now:
@@ -155,6 +187,13 @@ class Engine:
             if self.store.unwatch_auto(tid):
                 self.store.event(tid, "auto_unwatched")
             del self.finished[tid]
+        for record in self.store.records():
+            if record["state"] != "queued":
+                continue
+            submitted = record.get("submitted")
+            if numeric(submitted) and now - submitted >= QUEUED_TIMEOUT:
+                self.store.update(record["id"], "attention", "queued_stale")
+                self.store.event(record["thread_id"], "queued_stale")
         pending = [r["due"] for r in self.store.records() if r["state"] == "waiting" and r["due"] > self.clock()]
         if keeper is not None:
             keeper = window_keeper.tick(self.store, self.backend, self.snapshot, self.clock(),

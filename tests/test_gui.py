@@ -1,12 +1,13 @@
 import os
+import queue
 import uuid
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 pytest.importorskip("PySide6")
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtCore import Qt
-from auto_resume_agent.backends import selected_store
+from auto_resume_agent.backends import configuration, selected_store
 from auto_resume_agent.gui import Window, STYLE, Worker
 from auto_resume_agent.store import Store
 from auto_resume_agent.i18n import LANGUAGES, EN, TRANSLATIONS
@@ -344,3 +345,64 @@ def test_session_search_and_persistent_activity_names(tmp_path):
     reopened = Window(Store(tmp_path), start_worker=False)
     assert reopened.events.item(0, 1).text() == "Alpha report\n" + a
     reopened.close()
+
+
+def queued_window(tmp_path, state="queued", detail="open_session"):
+    app = QApplication.instance() or QApplication([])
+    store = Store(tmp_path)
+    window = Window(store, start_worker=False)
+    tid = str(uuid.uuid4())
+    record_id = uuid.uuid4().hex
+    with store.db() as db:
+        db.execute("INSERT INTO recoveries(id,thread_id,turn_id,kind,state,due,created,submitted,detail) "
+                   "VALUES (?,?,?,?,?,?,?,?,?)",
+                   (record_id, tid, str(uuid.uuid4()), "usage_limit", state, 0, 1, 2, detail))
+    window.rows = [{"id": tid, "name": "Queued task", "cwd": str(tmp_path)}]
+    window.set_filter("all")
+    window.render()
+    return window, store, record_id
+
+
+@pytest.mark.parametrize("state,detail,enabled", [
+    ("queued", "open_session", True),
+    ("attention", "queued_stale", True),
+    ("attention", "retry_budget", False),
+    ("accepted", "retry", False),
+])
+def test_retry_button_only_for_queued_or_stale_record(tmp_path, state, detail, enabled):
+    window, store, _ = queued_window(tmp_path, state, detail)
+    assert not window.retry_button.isEnabled()
+    window.table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+    assert window.retry_button.isEnabled() is enabled
+    window.close()
+
+
+def test_retry_queued_requires_confirmation_and_reports_result(tmp_path, monkeypatch):
+    window, store, record_id = queued_window(tmp_path)
+    window.table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+    requests = []
+
+    class FakeWorker:
+        def __init__(self):
+            self.outbox = queue.Queue()
+
+        def request(self, kind, value=None):
+            requests.append((kind, value))
+
+    window.worker = FakeWorker()
+    answers = [QMessageBox.StandardButton.No, QMessageBox.StandardButton.Yes]
+    monkeypatch.setattr("auto_resume_agent.gui.QMessageBox.question",
+                        lambda *args, **kwargs: answers.pop(0))
+
+    window.retry_selected()
+    assert not requests
+    window.retry_selected()
+    assert requests == [("retry", record_id)]
+    assert window.toast.text() == window.text("retry_sent")
+
+    window.worker.outbox.put((configuration(store), "retry", {"state": "accepted"}))
+    window.poll()
+    assert window.toast.text() == window.text("retry_accepted")
+    assert ("refresh", None) in requests
+    window.worker = None
+    window.close()
