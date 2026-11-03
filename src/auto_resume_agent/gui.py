@@ -68,6 +68,7 @@ class Worker:
                         self.outbox.put((configured, "threads", (backend.threads(None), True)))
                     elif kind == "refresh":
                         engine.last_usage = 0
+                        engine.discovery.head_at = 0
                 result = engine.tick()
                 self.store.set("last_error", None)
                 wait = result["delay"]

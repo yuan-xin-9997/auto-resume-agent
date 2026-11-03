@@ -56,6 +56,24 @@ def test_finished_session_is_unwatched_without_blocking_rediscovery(tmp_path):
     assert any(event["code"] == "auto_unwatched" for event in store.events())
 
 
+def test_codex_running_session_is_readopted_without_updated_at_change(tmp_path):
+    store = Store(tmp_path)
+    store.set("enabled", True)
+    backend = Backend(1)
+    engine = Engine(store, backend, lambda: NOW)
+    engine.tick()
+    tid = backend.rows[0]["id"]
+    assert [row["id"] for row in store.watched()] == [tid]
+    backend.turns[tid] = {"id": str(uuid.uuid4()), "status": "completed", "completedAt": NOW + 10}
+    engine.clock = lambda: NOW + 30
+    engine.tick()
+    assert not store.watched()
+    backend.turns[tid] = {"id": str(uuid.uuid4()), "status": "inProgress"}
+    engine.clock = lambda: NOW + 60
+    engine.tick()
+    assert [row["id"] for row in store.watched()] == [tid]
+
+
 def test_finished_session_with_active_recovery_stays_watched(tmp_path):
     store = Store(tmp_path)
     store.set("enabled", True)

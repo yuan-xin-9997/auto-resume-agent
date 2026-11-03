@@ -424,6 +424,27 @@ class OpenCode:
                 "archived": bool(parent or row.get("revert") or (timing or {}).get("archived")),
                 "updatedAt": updated / 1000 if numeric(updated) else None}
 
+    def running(self):
+        """Return the exact set of sessions with an active turn."""
+        self._detect()
+        try:
+            if self.mode == "v1":
+                status = self.request("/session/status")
+                if not isinstance(status, dict):
+                    raise BackendError("opencode_response_incompatible")
+                return {sid for sid, value in status.items()
+                        if valid_session(sid) and isinstance(value, dict)
+                        and value.get("type") not in (None, "idle")}
+            value = self.request("/api/session/active")
+        except BackendError as error:
+            if str(error) in ("opencode_http_404", "opencode_http_405"):
+                raise BackendError("opencode_experimental_api_missing") from None
+            raise
+        data = value.get("data") if isinstance(value, dict) else None
+        if not isinstance(data, dict):
+            raise BackendError("opencode_response_incompatible")
+        return {sid for sid in data if valid_session(sid)}
+
     def thread(self, thread_id):
         self._detect()
         if not valid_session(thread_id):

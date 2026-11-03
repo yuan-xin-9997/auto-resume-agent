@@ -321,6 +321,33 @@ def test_v2_running_session_is_adopted_automatically(tmp_path, service_v2):
     assert any(event["code"] == "auto_running" for event in store.events())
 
 
+def test_v2_running_session_is_readopted_after_auto_unwatch(tmp_path, service_v2):
+    state, url = service_v2
+    state["active"] = {SID: {"type": "running"}}
+    state["message"] = {"id": "msg_v2run123", "type": "assistant",
+                        "time": {"created": NOW * 1000}, "agent": "build",
+                        "model": {"id": "deepseek-v4.1-flash", "providerID": "opencode-go"},
+                        "content": []}
+    store, backend = unwatched(tmp_path, url)
+    engine = Engine(store, backend, lambda: NOW)
+    engine.tick()
+    assert [row["id"] for row in store.watched()] == [SID]
+    state["active"] = {}
+    state["message"] = idle(outcome="succeeded")
+    engine.clock = lambda: NOW + 30
+    engine.tick()
+    assert not store.watched()
+    state["active"] = {SID: {"type": "running"}}
+    state["message"] = {"id": "msg_v2run456", "type": "assistant",
+                        "time": {"created": (NOW + 50) * 1000}, "agent": "build",
+                        "model": {"id": "deepseek-v4.1-flash", "providerID": "opencode-go"},
+                        "content": []}
+    engine.clock = lambda: NOW + 60
+    engine.tick()
+    assert [row["id"] for row in store.watched()] == [SID]
+    assert sum(event["code"] == "auto_running" for event in store.events()) >= 2
+
+
 def test_v2_quota_failure_is_adopted_automatically(tmp_path, service_v2):
     _, url = service_v2
     store, backend = unwatched(tmp_path, url)
