@@ -1,0 +1,4 @@
+# Downloaded release assets are tracked intentionally in this repository.
+# The archives are published through GitHub Releases, not committed here.
+*.tmp
+.DS_Store
