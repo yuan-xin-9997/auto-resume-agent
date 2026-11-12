@@ -1,5 +1,31 @@
 # Compatibility and verification matrix
 
+## v1.1.1 — OpenCode desktop credential refresh
+
+The recovery adapters are unchanged from v1.1.0. For loopback OpenCode 2.x
+services, ARA prefers the password in `~/.config/opencode/service.json`,
+re-reads it when OpenCode rotates it, and falls back to
+`OPENCODE_SERVER_PASSWORD` only for manually started servers or when the file is
+stale. Remote URLs still never use local service credentials.
+
+## v1.1.0 — signed auto-updates
+
+The recovery adapters are unchanged from v1.0.0. v1.1.0 adds a separate update
+path:
+
+| Install type | Update behaviour |
+| --- | --- |
+| Windows per-user (`%LOCALAPPDATA%\Programs\AutoResumeAgent`) | Download, verify, swap and restart in place; previous directory retained for rollback |
+| Linux per-user (`~/.local/share/auto-resume-agent`) | Same in-place swap and rollback |
+| macOS `~/Applications/AutoResumeAgent.app` plus CLI directory | Replace the app bundle and CLI, then relaunch |
+| Portable archive | No self-modification; the banner opens the release asset |
+| Source checkout | No self-modification |
+
+Update manifests are ECDSA P-256 signed with a key separate from the license
+key; archives are verified by SHA-256 and package layout before execution. The
+bundles remain **unsigned and not notarized** unless the maintainer supplied
+platform signing credentials, so OS-level warnings are unchanged.
+
 ## v1.0.0 — paid edition
 
 The v1.0.0 code is the same Codex/OpenCode adapter as v0.5.7 with an added

@@ -65,7 +65,8 @@ Claude Code, Gemini CLI and cloud-only Codex sessions are not implemented.
 | Automatic adoption | Running and quota-interrupted sessions are watched automatically; completed sessions are unwatched after a grace period. |
 | Codex window keeper | Optional first request at the next five-hour window when no recovery is pending. Off by default. |
 | Five languages | English · 简体中文 · 繁體中文 · 日本語 · 한국어. |
-| Local and private | State stays in a local SQLite database. No telemetry. Claiming a code is the only network request, and only when you choose it. |
+| Signed updates | Daily signed-manifest check, SHA-256 archive verification, in-place update with rollback, and Stable / Beta channels. |
+| Local and private | State stays in a local SQLite database. No telemetry. The app checks a signed update manifest at most once a day; disable it in Settings. |
 | CLI | JSON output and exit codes for `usage`, `sessions`, `status`, `doctor`, `watch`, `check`, `add`, `enable` and licensing. |
 
 ## Download & installation
@@ -86,12 +87,12 @@ The bundles are unsigned and not notarized. Use your OS's normal approval flow i
 Verify the archive before extracting:
 
 ```powershell
-Get-FileHash .\AutoResumeAgent-v1.0.0-windows-x64.zip -Algorithm SHA256
+Get-FileHash .\AutoResumeAgent-v1.1.1-windows-x64.zip -Algorithm SHA256
 ```
 
 ```sh
-sha256sum AutoResumeAgent-v1.0.0-linux-x64.tar.gz
-shasum -a 256 AutoResumeAgent-v1.0.0-macos-arm64.tar.gz
+sha256sum AutoResumeAgent-v1.1.1-linux-x64.tar.gz
+shasum -a 256 AutoResumeAgent-v1.1.1-macos-arm64.tar.gz
 ```
 
 The adjacent `.sha256` file contains the expected value. See the [compatibility matrix](docs/COMPATIBILITY.md) for tested versions and evidence levels.
@@ -143,7 +144,7 @@ Codex CLI / Codex Desktop (tested with `0.163.0`) and OpenCode 1.19.x / 2.x. Cla
 The Codex CLI accepted the continuation. It does not prove the original conversation resumed. Keep the original session open. A queued recovery that is not consumed within 10 minutes becomes **Needs attention**; you can retry it from the app after a confirmation prompt.
 
 **Does the app send my conversations anywhere?**
-No. Session metadata is read locally. Claiming a license sends only the machine code (an 8-byte hash plus checksum) and order details to the store. The app sends no telemetry.
+No. Session metadata is read locally. Claiming a license sends only the machine code (an 8-byte hash plus checksum) and order details to the store. The daily update check sends only the current version and platform, and can be disabled. The app sends no telemetry.
 
 **Does activation need a network connection?**
 No. The code is verified offline with a public key built into the app. The network is only needed to receive the code.
@@ -161,7 +162,10 @@ Creem is the merchant of record and handles cards, local payment methods, taxes,
 Contact support within 14 days of purchase with your order number and a short description. See the [refund policy](https://autoresume.yuan-xin.top/refund).
 
 **Are the binaries signed?**
-No. The bundles are unsigned and not notarized. The SHA-256 checksum and the release page are the integrity reference.
+The application bundles are unsigned and not notarized. Update manifests are separately signed with ECDSA P-256, and every archive is verified by SHA-256 before installation. The release page and checksums remain the integrity reference.
+
+**How do updates work?**
+Installed per-user copies check a signed manifest at most once a day. **Download & install** verifies the manifest signature and archive SHA-256, swaps the installation in place and keeps the previous version for rollback. Portable and source copies show a download link instead of modifying themselves. Choose **Stable** or **Beta**, or disable update checks, in **Settings → Updates**.
 
 ## Support
 

@@ -65,7 +65,8 @@ Claude Code、Gemini CLI 和仅云端的 Codex 会话暂未实现。
 | 自动纳管 | 运行中和因额度中断的会话自动加入监控；完成的会话在宽限期后自动移出。 |
 | Codex 窗口启动 | 可选：没有待恢复任务时，在下一个五小时窗口发送一次正常请求。默认关闭。 |
 | 五种语言 | English · 简体中文 · 繁體中文 · 日本語 · 한국어。 |
-| 本地隐私 | 状态保存在本地 SQLite，无遥测。只有主动领取激活码时才联网。 |
+| 签名更新 | 每日检查签名清单，校验 SHA-256 后原地更新并支持回滚；可选 Stable / Beta 通道。 |
+| 本地隐私 | 状态保存在本地 SQLite，无遥测。应用每天最多检查一次签名更新清单，可在设置中关闭。 |
 | CLI | `usage`、`sessions`、`status`、`doctor`、`watch`、`check`、`add`、`enable` 和授权命令，支持 JSON 和退出码。 |
 
 ## 下载安装
@@ -86,12 +87,12 @@ Claude Code、Gemini CLI 和仅云端的 Codex 会话暂未实现。
 解压前校验 SHA-256：
 
 ```powershell
-Get-FileHash .\AutoResumeAgent-v1.0.0-windows-x64.zip -Algorithm SHA256
+Get-FileHash .\AutoResumeAgent-v1.1.1-windows-x64.zip -Algorithm SHA256
 ```
 
 ```sh
-sha256sum AutoResumeAgent-v1.0.0-linux-x64.tar.gz
-shasum -a 256 AutoResumeAgent-v1.0.0-macos-arm64.tar.gz
+sha256sum AutoResumeAgent-v1.1.1-linux-x64.tar.gz
+shasum -a 256 AutoResumeAgent-v1.1.1-macos-arm64.tar.gz
 ```
 
 压缩包旁的 `.sha256` 文件包含期望值。实测版本和证据级别见[兼容性矩阵](docs/COMPATIBILITY.md)。
@@ -143,7 +144,7 @@ Codex CLI / Codex Desktop（实测 `0.163.0`）和 OpenCode 1.19.x / 2.x。Claud
 表示 Codex CLI 已接受继续消息，但不能证明原会话已经执行。请保持原会话打开。排队超过 10 分钟会变成 **需要处理**，可以在应用中确认后重试。
 
 **程序会把我的对话上传吗？**
-不会。会话元数据在本机读取。领取授权时只把机器码（8 字节哈希 + 校验码）和订单信息发送到商店。软件没有遥测。
+不会。会话元数据在本机读取。领取授权时只把机器码（8 字节哈希 + 校验码）和订单信息发送到商店。每日更新检查只发送当前版本和平台，可在设置中关闭。软件没有遥测。
 
 **激活需要联网吗？**
 不需要。激活码由内置公钥离线验证；网络只用于领取激活码。
@@ -161,7 +162,10 @@ Creem 作为 Merchant of Record 负责银行卡、本地支付、税费、发票
 购买后 14 天内联系支持，附上订单号和问题描述。见[退款政策](https://autoresume.yuan-xin.top/refund)。
 
 **安装包签名了吗？**
-没有。安装包未签名、未公证；请以 SHA-256 校验值和 Releases 页面为准。
+应用安装包未签名、未公证。更新清单使用独立的 ECDSA P-256 签名，安装前会校验压缩包的 SHA-256。完整性和来源仍以 Releases 页面和校验值为准。
+
+**自动更新是如何工作的？**
+已安装的用户级副本每天最多检查一次签名清单。点击**下载并安装**后会校验清单签名与压缩包 SHA-256，原地替换安装目录并保留上一版本用于回滚。便携版和源码运行不会修改自身，只显示下载链接。可在**设置 → 更新**中选择 **Stable** / **Beta** 或关闭检查。
 
 ## 支持
 

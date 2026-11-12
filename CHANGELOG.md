@@ -1,3 +1,43 @@
+# Auto Resume Agent v1.1.1
+
+## OpenCode desktop credential refresh
+
+- On loopback URLs, prefer the current password in `~/.config/opencode/service.json` over a stale `OPENCODE_SERVER_PASSWORD` environment variable.
+- Re-read the service file when OpenCode rewrites it on a background-service restart, and automatically try the other local credential after an HTTP 401. A working credential is cached until the file or environment changes.
+- Keep environment variables as a fallback for manually started OpenCode servers. Remote URLs still never use local service credentials.
+- Update the README and in-app help so OpenCode 2.x desktop users no longer need to copy a rotating password into the environment.
+
+Validation: 210 automated tests, including stale-environment, environment-fallback and live-rotation cases; packaged Windows startup verified locally.
+
+# Auto Resume Agent v1.1.0
+
+## Signed updates
+
+> v1.0.0 predates the update client. Install v1.1.0 manually once; automatic
+> updates begin with v1.1.0 and later.
+
+- Check for updates at most once a day from the store-hosted, ECDSA-signed manifest; disable the check or switch between **Stable** and **Beta** in **Settings → Updates**.
+- Show an in-app banner with release notes, **Skip this version**, **Download & install**, and **Restart & install**.
+- Download the archive from GitHub Releases, verify its SHA-256 and the signed manifest, reject path traversal and links, then swap the per-user installation with automatic rollback. User state, watched sessions, license and settings stay in their own directory and are not touched.
+- Windows, Linux and macOS per-user installs update in place. Portable and system-wide copies get a download link instead.
+- Keep the previous version for 14 days for manual recovery, and clean old stages automatically.
+- Add `auto-resume-agent update check` and `auto-resume-agent update install [--apply]`.
+- Update requests contain only the current version and platform; no machine code, account or telemetry. Rollout percentages are evaluated locally.
+- The store serves `/updates/{stable,beta}/latest.json` and verifies each published manifest with a separate update signing key.
+
+## Paid edition
+
+- Add offline, machine-bound Pro licensing. A 14-day trial starts on first use; after it ends, monitoring stays free and automatic recovery is locked until a license is activated.
+- Add **License** settings: machine code, activation-code input, buy link, and deactivation. Five interface languages are included.
+- Add `license`, `activate` and `deactivate` CLI commands. `enable`, `watch`, `check`, `window-keeper on`, and queued retries require an active trial or license and return exit code `3` with `license_required` otherwise.
+- Enforce the entitlement in the engine before claiming a recovery and before sending a Codex window-start request, not only in the UI.
+- Activation is verified locally with an embedded ECDSA P-256 public key. No account, network request or telemetry is used after the code is issued.
+- Source code moved to the private `auto-resume-agent-core` repository; the public repository hosts downloads and documentation.
+
+## Recovery behaviour
+
+- On refresh, check recent Codex turn metadata if the newest turn is an interrupted placeholder. Clear the old attention state when a subsequent completed turn confirms recovery.
+
 # Auto Resume Agent v1.0.0
 
 ## Paid edition
