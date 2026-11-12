@@ -78,7 +78,9 @@ Claude Code、Gemini CLI 和仅云端的 Codex 会话暂未实现。
 | Windows 10 1809+ / 11 x64 | [`AutoResumeAgent-windows-x64.zip`](https://github.com/yuan-xin-9997/auto-resume-agent/releases/latest/download/AutoResumeAgent-windows-x64.zip) | 完整解压，运行 `Install.cmd`，之后使用桌面／开始菜单快捷方式。 |
 | Ubuntu 24.04 / 26.04 x64 | [`AutoResumeAgent-linux-x64.tar.gz`](https://github.com/yuan-xin-9997/auto-resume-agent/releases/latest/download/AutoResumeAgent-linux-x64.tar.gz) | 解压，运行 `sh install.sh`，从应用菜单打开。 |
 | macOS 27 Apple Silicon | [`AutoResumeAgent-macos-arm64.tar.gz`](https://github.com/yuan-xin-9997/auto-resume-agent/releases/latest/download/AutoResumeAgent-macos-arm64.tar.gz) | 解压，运行 `sh install.sh`，打开 `~/Applications/AutoResumeAgent.app`。 |
-| macOS 27 Intel | [`AutoResumeAgent-macos-x64.tar.gz`](https://github.com/yuan-xin-9997/auto-resume-agent/releases/latest/download/AutoResumeAgent-macos-x64.tar.gz) | 同上，Intel 版本。 |
+| macOS 27 Intel | [`AutoResumeAgent-macos-x64.tar.gz`](https://github.com/yuan-xin-9997/auto-resume-agent/releases/download/v1.0.0/AutoResumeAgent-macos-x64.tar.gz) | 同上，Intel 版本。1.1.0 暂无 Intel 构建，此链接指向 1.0.0。 |
+
+1.1.0 提供 Windows x64、Linux x64 和 macOS Apple Silicon。Intel macOS 在有 x64 构建前继续使用 1.0.0。
 
 校验值：[`SHA256SUMS.txt`](https://github.com/yuan-xin-9997/auto-resume-agent/releases/latest/download/SHA256SUMS.txt)。
 
@@ -87,12 +89,12 @@ Claude Code、Gemini CLI 和仅云端的 Codex 会话暂未实现。
 解压前校验 SHA-256：
 
 ```powershell
-Get-FileHash .\AutoResumeAgent-v1.1.1-windows-x64.zip -Algorithm SHA256
+Get-FileHash .\AutoResumeAgent-v1.1.0-windows-x64.zip -Algorithm SHA256
 ```
 
 ```sh
-sha256sum AutoResumeAgent-v1.1.1-linux-x64.tar.gz
-shasum -a 256 AutoResumeAgent-v1.1.1-macos-arm64.tar.gz
+sha256sum AutoResumeAgent-v1.1.0-linux-x64.tar.gz
+shasum -a 256 AutoResumeAgent-v1.1.0-macos-arm64.tar.gz
 ```
 
 压缩包旁的 `.sha256` 文件包含期望值。实测版本和证据级别见[兼容性矩阵](docs/COMPATIBILITY.md)。

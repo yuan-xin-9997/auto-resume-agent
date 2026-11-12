@@ -78,7 +78,9 @@ Download the archive matching your OS and processor from [Releases](https://gith
 | Windows 10 1809+ / 11, x64 | [`AutoResumeAgent-windows-x64.zip`](https://github.com/yuan-xin-9997/auto-resume-agent/releases/latest/download/AutoResumeAgent-windows-x64.zip) | Extract the whole archive, run `Install.cmd`, then use the Desktop / Start Menu shortcut. |
 | Ubuntu 24.04 / 26.04, x64 | [`AutoResumeAgent-linux-x64.tar.gz`](https://github.com/yuan-xin-9997/auto-resume-agent/releases/latest/download/AutoResumeAgent-linux-x64.tar.gz) | Extract, run `sh install.sh`, launch from Applications. |
 | macOS 27, Apple Silicon | [`AutoResumeAgent-macos-arm64.tar.gz`](https://github.com/yuan-xin-9997/auto-resume-agent/releases/latest/download/AutoResumeAgent-macos-arm64.tar.gz) | Extract, run `sh install.sh`, open `~/Applications/AutoResumeAgent.app`. |
-| macOS 27, Intel | [`AutoResumeAgent-macos-x64.tar.gz`](https://github.com/yuan-xin-9997/auto-resume-agent/releases/latest/download/AutoResumeAgent-macos-x64.tar.gz) | Same procedure, Intel build. |
+| macOS 27, Intel | [`AutoResumeAgent-macos-x64.tar.gz`](https://github.com/yuan-xin-9997/auto-resume-agent/releases/download/v1.0.0/AutoResumeAgent-macos-x64.tar.gz) | Same procedure, Intel build. 1.1.0 has no Intel build yet; this links to 1.0.0. |
+
+1.1.0 ships Windows x64, Linux x64 and macOS Apple Silicon. Intel macOS remains on 1.0.0 until an x64 build is available.
 
 Checksums: [`SHA256SUMS.txt`](https://github.com/yuan-xin-9997/auto-resume-agent/releases/latest/download/SHA256SUMS.txt).
 
@@ -87,12 +89,12 @@ The bundles are unsigned and not notarized. Use your OS's normal approval flow i
 Verify the archive before extracting:
 
 ```powershell
-Get-FileHash .\AutoResumeAgent-v1.1.1-windows-x64.zip -Algorithm SHA256
+Get-FileHash .\AutoResumeAgent-v1.1.0-windows-x64.zip -Algorithm SHA256
 ```
 
 ```sh
-sha256sum AutoResumeAgent-v1.1.1-linux-x64.tar.gz
-shasum -a 256 AutoResumeAgent-v1.1.1-macos-arm64.tar.gz
+sha256sum AutoResumeAgent-v1.1.0-linux-x64.tar.gz
+shasum -a 256 AutoResumeAgent-v1.1.0-macos-arm64.tar.gz
 ```
 
 The adjacent `.sha256` file contains the expected value. See the [compatibility matrix](docs/COMPATIBILITY.md) for tested versions and evidence levels.
