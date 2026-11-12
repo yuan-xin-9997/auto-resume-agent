@@ -98,7 +98,7 @@ adapter remains available unchanged.
 | --- | --- | --- |
 | Windows 10 1809+ / 11, x64 | Installer and portable launch | CI build/startup; Windows 11 interactive checks in historical records |
 | Ubuntu 24.04 / 26.04, x64 | Tarball and installer | CI build/startup; Ubuntu 24.04 interactive checks in historical records |
-| macOS 27, Apple Silicon / Intel | App bundle and installer | CI build/startup for both architectures; arm64 interactive checks in historical records |
+| macOS 27 | Apple Silicon arm64 in 1.1.0; Intel x64 remains on 1.0.0 | arm64 1.1.0 build/startup verified; Intel x64 1.0.0 archive remains available |
 
 ## Not verified by this change
 
