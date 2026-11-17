@@ -100,6 +100,8 @@ adapter remains available unchanged.
 | Ubuntu 24.04 / 26.04, x64 | Tarball and installer | CI build/startup; Ubuntu 24.04 interactive checks in historical records |
 | macOS 27 | Apple Silicon arm64 in 1.1.0; Intel x64 remains on 1.0.0 | arm64 1.1.0 build/startup verified; Intel x64 1.0.0 archive remains available |
 
+macOS arm64 is also built for the v1.1.1 pre-release (`AutoResumeAgent-v1.1.1-macos-arm64.tar.gz`): frozen CLI and GUI startup, `doctor`, and the `1.1.1` bundle version were verified on macOS 27.2.1. The stable channel remains on 1.1.0.
+
 ## Not verified by this change
 
 - Real quota exhaustion and recovery against a production Codex account.

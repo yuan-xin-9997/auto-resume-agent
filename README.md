@@ -82,6 +82,8 @@ Download the archive matching your OS and processor from [Releases](https://gith
 
 1.1.0 ships Windows x64, Linux x64 and macOS Apple Silicon. Intel macOS remains on 1.0.0 until an x64 build is available.
 
+macOS arm64 is also available in the [v1.1.1 pre-release](https://github.com/yuan-xin-9997/auto-resume-agent/releases/tag/v1.1.1) as `AutoResumeAgent-v1.1.1-macos-arm64.tar.gz`, installed the same way. The `latest` links above keep pointing at 1.1.0 until 1.1.1 is promoted to the stable channel.
+
 Checksums: [`SHA256SUMS.txt`](https://github.com/yuan-xin-9997/auto-resume-agent/releases/latest/download/SHA256SUMS.txt).
 
 The bundles are unsigned and not notarized. Use your OS's normal approval flow if it asks. The macOS CLI is installed in `~/.local/bin`; add it to `PATH` if necessary.
